@@ -7,6 +7,7 @@ class KreamManager:
         self.con = self.connect_db()
         self.cursor = self.con.cursor()
 
+    # 모델 정보 가져오기(1회)
     def insert_product(self):
         print("전체 상품 Srap 시작합니다.")
         page = 1
@@ -14,7 +15,7 @@ class KreamManager:
             print("%d page" %(page))
             sleep_random(0.3, 0.5)
             response = self._request_get_productlist_page_N(page)
-            state = self._parse_productinfo_from_request(response)
+            state = self._parse_productinfo(response)
 
             if(state):
                 page = page + 1
@@ -40,7 +41,7 @@ class KreamManager:
                 
                 sleep_random(0.3, 0.8)
                 response = self._request_price(id_kream=id_kream, size=size)
-                state, price_buy, price_sell = self._parse_priceinfo_from_request(response)
+                state, price_buy, price_sell = self._parse_priceinfo(response)
 
                 if(state):
                     self._query_insert_priceinfo(id, id_kream, size_mm, size_us, price_buy, price_sell)
@@ -52,11 +53,11 @@ class KreamManager:
             else:
                 id_start = id_start + batch
 
-    def update_price(self, brand='whole', batch=20):
+    # 가격 정보 업데이트 기능(추천)
+    def update_price(self, batch=20, delay_min=0.2, delay_max=0.5, id_start=1):
         print("가격 정보들을 가져옵니다.")
         cnt_total = self._query_count_total()
 
-        id_start = 1
         while(1):
             id_end = min(id_start + batch -1, cnt_total)
             data = self._query_fetch_data(id_start=id_start, id_end=id_end)
@@ -69,9 +70,9 @@ class KreamManager:
                 else:
                     size = "%s(%s)"%(size_mm, size_us)
                 
-                sleep_random(0.3, 0.8)
+                sleep_random(delay_min, delay_max)
                 response = self._request_price(id_kream=id_kream, size=size)
-                state, price_buy, price_sell = self._parse_priceinfo_from_request(response)
+                state, price_buy, price_sell = self._parse_priceinfo(response)
 
                 if(state):
                     self._query_update_priceinfo(id, id_kream, size_mm, size_us, price_buy, price_sell)
@@ -82,6 +83,7 @@ class KreamManager:
                 break
             else:
                 id_start = id_start + batch
+
 
     def __del__(self):
         self.con.close()
@@ -113,7 +115,7 @@ class KreamManager:
         response = requests.get(url, headers=headers)
         return response
 
-    def _parse_productinfo_from_request(self, response):
+    def _parse_productinfo(self, response):
         if(response.status_code != 200):
             print(response.status_code)
             return False
@@ -181,8 +183,8 @@ class KreamManager:
 
     def _query_insert_productinfo(self, product):
         try:
-            sql = "INSERT INTO kream_model (id_kream, brand, model_no, product_name, product_name_kor, size_mm, size_us, size_uk) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)" 
-            self.cursor.execute(sql, (product['id_kream'], product['brand'], product['model_no'], product['product_name'], product['product_name_kor'], product['size_mm'], product['size_us'], product['size_uk']))
+            query = "INSERT INTO kream_model (id_kream, brand, model_no, product_name, product_name_kor, size_mm, size_us, size_uk) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)" 
+            self.cursor.execute(query, (product['id_kream'], product['brand'], product['model_no'], product['product_name'], product['product_name_kor'], product['size_mm'], product['size_us'], product['size_uk']))
 
             self.con.commit()
         except Exception as e:
@@ -191,8 +193,8 @@ class KreamManager:
 
     def _query_update_productinfo(self, product):
         try:
-            sql = "UPDATE kream (id_kream, brand, model_no, product_name, product_name_kor, size_mm, size_us, size_uk) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)" 
-            self.cursor.execute(sql, (product['id_kream'], product['brand'], product['model_no'], product['product_name'], product['product_name_kor'], product['size_mm'], product['size_us'], product['size_uk']))
+            query = "UPDATE kream_model (id_kream, brand, model_no, product_name, product_name_kor, size_mm, size_us, size_uk) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)" 
+            self.cursor.execute(query, (product['id_kream'], product['brand'], product['model_no'], product['product_name'], product['product_name_kor'], product['size_mm'], product['size_us'], product['size_uk']))
 
             self.con.commit()
         except Exception as e:
@@ -239,15 +241,15 @@ class KreamManager:
     ######### 2. 1개씩 query 날려서, 가격 가져온다. ##########################################################################################################################
     ########################################################################################################################################################################
     def _query_count_total(self):
-        sql = "SELECT COUNT(*) FROM kream_model"
-        self.cursor.execute(sql)
+        query = "SELECT COUNT(*) FROM kream_model"
+        self.cursor.execute(query)
         result = self.cursor.fetchone()
         
         return result[0]
 
     def _query_fetch_data(self, id_start, id_end):
-        sql = "SELECT id, id_kream, size_mm, size_us FROM kream_model WHERE id>%d AND id <%d"%(id_start-1, id_end+1)
-        self.cursor.execute(sql)
+        query = "SELECT id, id_kream, size_mm, size_us FROM kream_model WHERE id>%d AND id <%d"%(id_start-1, id_end+1)
+        self.cursor.execute(query)
 
         data = self.cursor.fetchall()
             
@@ -266,7 +268,7 @@ class KreamManager:
         response = requests.get(url, headers=headers)
         return response
 
-    def _parse_priceinfo_from_request(self, response):
+    def _parse_priceinfo(self, response):
         price_buy = ""
         price_sell = ""
 
@@ -283,8 +285,8 @@ class KreamManager:
 
     def _query_insert_priceinfo(self, id, id_kream, size_mm, size_us, price_buy, price_sell):
         try:       
-            sql = "INSERT INTO kream_price (id, id_kream, size_mm, size_us, price_buy, price_sell) VALUES (%s, %s, %s, %s, %s, %s)"
-            self.cursor.execute(sql, (id, id_kream, size_mm, size_us, price_buy, price_sell))
+            query = "INSERT INTO kream_price (id, id_kream, size_mm, size_us, price_buy, price_sell) VALUES (%s, %s, %s, %s, %s, %s)"
+            self.cursor.execute(query, (id, id_kream, size_mm, size_us, price_buy, price_sell))
 
             self.con.commit()
         except Exception as e:
@@ -292,9 +294,9 @@ class KreamManager:
 
     def _query_update_priceinfo(self, id, id_kream, size_mm, size_us, price_buy, price_sell):
         try:
-            sql = "INSERT INTO kream_price (id, id_kream, size_mm, size_us, price_buy, price_sell) VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE price_buy=%s, price_sell=%s"
-            # sql = "UPDATE kream_price SET price_buy='%s', price_sell='%s' WHERE id=%s"
-            self.cursor.execute(sql, (id, id_kream, size_mm, size_us, price_buy, price_sell, price_buy, price_sell))
+            query = "INSERT INTO kream_price (id, id_kream, size_mm, size_us, price_buy, price_sell) VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE price_buy=%s, price_sell=%s"
+            # query = "UPDATE kream_price SET price_buy='%s', price_sell='%s' WHERE id=%s"
+            self.cursor.execute(query, (id, id_kream, size_mm, size_us, price_buy, price_sell, price_buy, price_sell))
 
             self.con.commit()
         except Exception as e:
@@ -314,5 +316,5 @@ if __name__ == '__main__':
     # KreamManager.insert_product()
 
     ## 기능 2.
-    KreamManager.update_price(batch=20)
+    KreamManager.update_price(batch=20, delay_min=0.2, delay_max=0.5)
 
