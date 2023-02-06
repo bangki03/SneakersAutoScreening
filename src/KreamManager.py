@@ -52,10 +52,10 @@ class KreamManager:
                 
                 sleep_random(delay_min, delay_max)
                 response = self._request_price(id_kream=id_kream, size=size_kream)
-                state, price_buy, price_sell = self._parse_priceinfo(response)
+                state, price_buy, price_sell, price_recent = self._parse_priceinfo(response)
 
                 if(state):
-                    self._query_update_priceinfo(id, id_kream=id_kream, size_kream_mm=size_kream_mm, size_kream_us=size_kream_us, price_buy=price_buy, price_sell=price_sell)
+                    self._query_update_priceinfo(id, id_kream=id_kream, size_kream_mm=size_kream_mm, size_kream_us=size_kream_us, price_buy=price_buy, price_sell=price_sell, price_recent=price_recent)
             
             toc = time.time()
             print("[Kream_Manager] : 처리중(%6d/%d) - %.1fmin"%(id_end, cnt_total, (toc-tic)/60))
@@ -85,10 +85,10 @@ class KreamManager:
                 
                 sleep_random(delay_min, delay_max)
                 response = self._request_price(id_kream=id_kream, size=size_kream)
-                state, price_buy, price_sell = self._parse_priceinfo(response)
+                state, price_buy, price_sell, price_recent = self._parse_priceinfo(response)
 
                 if(state):
-                    self._query_update_priceinfo(id, id_kream=id_kream, size_kream_mm=size_kream_mm, size_kream_us=size_kream_us, price_buy=price_buy, price_sell=price_sell)
+                    self._query_update_priceinfo(id, id_kream=id_kream, size_kream_mm=size_kream_mm, size_kream_us=size_kream_us, price_buy=price_buy, price_sell=price_sell, price_recent=price_recent)
             
             toc = time.time()
             print("[Kream_Manager] : 처리중(%6d/%d) - %.1fmin"%(id_end, cnt_total, (toc-tic)/60))
@@ -270,25 +270,27 @@ class KreamManager:
     def _parse_priceinfo(self, response):
         price_buy = ""
         price_sell = ""
+        price_recent= ""
 
         if(response.status_code == 429):
             print(response.headers)
         elif(response.status_code != 200):
             print(response.status_code)
-            return False, price_buy, price_sell
+            return False, price_buy, price_sell, price_recent
         else:
             data = response.json()
             price_buy = data['market']['lowest_ask']
             price_sell = data['market']['highest_bid']
+            price_recent = data['market']['last_sale_price']
 
-            return True, price_buy, price_sell
+            return True, price_buy, price_sell, price_recent
 
-    def _query_update_priceinfo(self, id, id_kream, size_kream_mm, size_kream_us, price_buy, price_sell):
+    def _query_update_priceinfo(self, id, id_kream, size_kream_mm, size_kream_us, price_buy, price_sell, price_recent):
         try:
             # query = "INSERT INTO sneakers_price (id, id_kream, size_kream_mm, size_kream_us, price_buy_kream, price_sell_kream) VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE price_buy_kream=%s, price_sell_kream=%s"
             # query = "UPDATE sneakers_price SET price_buy_kream='%s', price_sell_kream='%s' WHERE id_kream=%s AND size_kream_mm=%s AND size_kream_us=%s"
-            query = "UPDATE sneakers_price SET price_buy_kream=NULLIF(%s, ''), price_sell_kream=NULLIF(%s, '') WHERE id_kream=%s AND size_kream_mm=%s AND size_kream_us=%s"
-            self.cursor.execute(query, (price_buy, price_sell, id_kream, size_kream_mm, size_kream_us))
+            query = "UPDATE sneakers_price SET price_buy_kream=NULLIF(%s, ''), price_sell_kream=NULLIF(%s, ''), price_recent_kream=NULLIF(%s, '') WHERE id_kream=%s AND size_kream_mm=%s AND size_kream_us=%s"
+            self.cursor.execute(query, (price_buy, price_sell, price_recent, id_kream, size_kream_mm, size_kream_us))
 
             self.con.commit()
         except Exception as e:

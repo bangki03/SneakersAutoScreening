@@ -86,9 +86,9 @@ class Analyzer:
 
     ##### 기능 4. sneakers_price table 추출 #####
     def export_report(self):
-        query = "SELECT brand, model_no, product_name, size_stockx, size_estimated_mm, size_kream_mm, size_kream_us, price_buy_kream, price_sell_kream, price_buy_stockx, price_sell_stockx, updated_at FROM sneakers_price"
+        query = "SELECT brand, model_no, product_name, size_stockx, size_estimated_mm, size_kream_mm, size_kream_us, price_buy_kream, price_sell_kream, price_recent_kream, price_buy_stockx, price_sell_stockx, price_recent_stockx, updated_at FROM sneakers_price"
         result = pandas.read_sql_query(query,self.con)
-        filename = 'report\SASS_Report_%s.csv'%(self.date)
+        filename = 'report\[%s][SASS_Price].csv'%(self.date)
         result.to_csv(filename, index=False)
 
         print("[Analyzer] : Export Complete(%s)"%(filename))
@@ -98,7 +98,7 @@ class Analyzer:
     def _query_fetch_kream_product(self):
         query = "SELECT DISTINCT brand, model_no, product_name FROM kream"
         result = pandas.read_sql_query(query,self.con)
-        filename = 'report\[%s]kream_상품정보.csv'%(self.date)
+        filename = 'report\[%s][Item_List][kream].csv'%(self.date)
         result.to_csv(filename, index=False)
 
         print("[Analyzer] : Export Complete(%s)"%(filename))
@@ -106,7 +106,7 @@ class Analyzer:
     def _query_fetch_stockx_product(self):
         query = "SELECT DISTINCT brand, model_no, urlkey, product_name FROM stockx"
         result = pandas.read_sql_query(query,self.con)
-        filename = 'report\[%s]stockx_상품정보.csv'%(self.date)
+        filename = 'report\[%s][Item_List][stockx].csv'%(self.date)
         result.to_csv(filename, index=False)
 
         print("[Analyzer] : Export Complete(%s)"%(filename))
@@ -114,7 +114,7 @@ class Analyzer:
     def _query_fetch_sneakers_product(self):
         query = "SELECT brand, model_no, product_name, urlkey FROM stockx WHERE model_no in (select model_no from kream)"
         result = pandas.read_sql_query(query,self.con)
-        filename = 'report\[%s]sneakers_상품정보.csv'%(self.date)
+        filename = 'report\[%s][Item_List][sneakers].csv'%(self.date)
         result.to_csv(filename, index=False)
 
         print("[Analyzer] : Export Complete(%s)"%(filename))
@@ -188,44 +188,45 @@ class Analyzer:
                 '21':'390',
                 '21.5':'395',
                 '22':'400',
-                '5W':'225',
-                '5.5W':'230',
-                '6W':'235',
+                '4W':'210',
+                '4.5W':'215',
+                '5W':'220',
+                '5.5W':'225',
+                '6W':'230',
                 '6.5W':'235',
                 '7W':'240',
-                '7.5W':'240',
-                '8W':'245',
-                '8.5W':'250',
-                '9W':'255',
-                '9.5W':'260',
-                '10W':'265',
-                '10.5W':'270',
-                '11W':'275',
-                '11.5W':'280',
-                '12W':'285',
-                '12.5W':'290',
-                '13W':'295',
-                '13.5W':'300',
-                '14W':'305',
-                '14.5W':'310',
-                '15W':'315',
-                '15.5W':'320',
-                '16W':'325',
-                '16.5W':'330',
-                '17W':'335',
-                '17.5W':'340',
-                '18W':'345',
-                '18.5W':'350',
-                '19W':'355',
-                '19.5W':'360',
-                '20W':'365',
-                '20.5W':'370',
-                '21W':'375',
-                '21.5W':'380',
-                '22W':'385',
-                '22.5W':'390',
-                '23W':'395',
-                '23.5W':'400',
+                '7.5W':'245',
+                '8W':'250',
+                '8.5W':'255',
+                '9W':'260',
+                '9.5W':'265',
+                '10W':'270',
+                '10.5W':'275',
+                '11W':'280',
+                '11.5W':'285',
+                '12W':'290',
+                '12.5W':'295',
+                '13W':'300',
+                '13.5W':'305',
+                '14W':'310',
+                '14.5W':'315',
+                '15W':'320',
+                '15.5W':'325',
+                '16W':'330',
+                '16.5W':'335',
+                '17W':'340',
+                '17.5W':'345',
+                '18W':'350',
+                '18.5W':'355',
+                '19W':'360',
+                '19.5W':'365',
+                '20W':'370',
+                '20.5W':'375',
+                '21W':'380',
+                '21.5W':'385',
+                '22W':'390',
+                '22.5W':'395',
+                '23W':'400',
                 '3.5Y':'225',
                 '4Y':'230',
                 '4.5Y':'235',

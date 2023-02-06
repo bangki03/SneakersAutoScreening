@@ -83,7 +83,7 @@ class StockXManager:
                 sleep_random(delay_min, delay_max)
                 state = self._insert_data_with_size_scraping(brand=brand, model_no=model_no, product_name=product_name, urlkey=urlkey)
 
-                if(~state):
+                if(not state):
                     continue
             
             toc = time.time()
@@ -104,17 +104,22 @@ class StockXManager:
             id_end = min(id_start + batch, cnt_total)
             data_batch = data[id_start: id_end]
             for urlkey in data_batch:
-                # Model No.
                 sleep_random(delay_min, delay_max)
 
-                # Size별 가격
                 state = self._update_price(urlkey=urlkey[0])
+
+                # price recent
+                data_id = self._query_select_id_stockx_in_urlkey(urlkey=urlkey[0])
+                for id_stockx in data_id:
+                    sleep_random(delay_min, delay_max)
+
+                    state_price_recent = self._update_price_recent(urlkey=urlkey[0], id_stockx=id_stockx[0])
 
                 # if(~state):
                 #     continue
             
             toc = time.time()
-            print("처리중(%d/%d) - %.0fs"%(id_end, cnt_total, toc-tic))
+            print("[StockX_Manager] : 처리중(%d/%d) - %.1fmin"%(id_end, cnt_total, (toc-tic)/60))
             # 처리 끝났으면 while 조건 체크
             if(id_end == cnt_total):
                 break
@@ -367,7 +372,7 @@ class StockXManager:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
             'x-operation-name': 'GetMarketData',
             'x-stockx-device-id': '052ebc20-b6ba-48e5-b3a9-d94b8a64df2a',
-            'Authorization': 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5USkNNVVEyUmpBd1JUQXdORFk0TURRelF6SkZRelV4TWpneU5qSTNNRFJGTkRZME0wSTNSQSJ9.eyJodHRwczovL3N0b2NreC5jb20vY3VzdG9tZXJfdXVpZCI6ImJmOGQzMDIzLTljNGItMTFlZC05ZjBjLTEyNDczOGI1MGUxMiIsImh0dHBzOi8vc3RvY2t4LmNvbS9nYV9ldmVudCI6IkxvZ2dlZCBJbiIsImlzcyI6Imh0dHBzOi8vYWNjb3VudHMuc3RvY2t4LmNvbS8iLCJzdWIiOiJhdXRoMHw2M2QwN2Y1MTc4ZDEwYmU5ZGYzNTk4YWQiLCJhdWQiOiJnYXRld2F5LnN0b2NreC5jb20iLCJpYXQiOjE2NzU1MjEzMjksImV4cCI6MTY3NTU2NDUyOSwiYXpwIjoiT1Z4cnQ0VkpxVHg3TElVS2Q2NjFXMER1Vk1wY0ZCeUQiLCJzY29wZSI6Im9mZmxpbmVfYWNjZXNzIn0.TQqjtxiSX-73koX_tKoPf_O-Dw2o-3MwgrGUNohKaD3G63H4JDqY5zQhOrysmgdpXHBL0R4tTW2IP1FECcsxNc4ULjolGCMNqhHJFR7Ad1aP0Fb8Wa4OJvAZQLqRgyAtJ1hXCNjK8P2PZLyfHnF2MQ6L3bj5seX1gbWz53oamhsCGZJHCbchGA7nNe8sTMzduua3AZ2bTfxwiPc8HW-ATQQZeHc3V32esMydO9Pas5KAu_2K8FD0XcOzWNLuyrXM3kw0dIMLiyWLXLon57RB1x5Qselxzio9PEork0mxhE-yEL6cxGtpegxO6SBxFM3GfDZx-KiDTcgG5Cr2jYKU2g',
+            'Authorization': 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5USkNNVVEyUmpBd1JUQXdORFk0TURRelF6SkZRelV4TWpneU5qSTNNRFJGTkRZME0wSTNSQSJ9.eyJodHRwczovL3N0b2NreC5jb20vY3VzdG9tZXJfdXVpZCI6ImJmOGQzMDIzLTljNGItMTFlZC05ZjBjLTEyNDczOGI1MGUxMiIsImh0dHBzOi8vc3RvY2t4LmNvbS9nYV9ldmVudCI6IkxvZ2dlZCBJbiIsImlzcyI6Imh0dHBzOi8vYWNjb3VudHMuc3RvY2t4LmNvbS8iLCJzdWIiOiJhdXRoMHw2M2QwN2Y1MTc4ZDEwYmU5ZGYzNTk4YWQiLCJhdWQiOiJnYXRld2F5LnN0b2NreC5jb20iLCJpYXQiOjE2NzU2Nzg0MDQsImV4cCI6MTY3NTcyMTYwNCwiYXpwIjoiT1Z4cnQ0VkpxVHg3TElVS2Q2NjFXMER1Vk1wY0ZCeUQiLCJzY29wZSI6Im9mZmxpbmVfYWNjZXNzIn0.j8l4GwvwMEm-hp5vPKexLQK7AFTlNSF3cIwfSUedK1B6jKJ0AqKSgM1XxQp9RoD6lwyy4iMAwlrEC2GA4FUTx7ROSEn45IgWSUq2fTaT4pR7xO5GfmOqgdMZpW346bnBvDANloHSE3NlUy5C7UWPD2993erkc1j1kqbOV8JyCPk06aWZAxes1n-JeptnBWVuZRcXfVZiVqsHVkaOekLtq4ybo_RbcT2_Hst3qmdpewuf2RdvHzXHAAWyoVdiG-SXJ3xuCo3BEpBXfiLITxozLbihJO5EeIOkAsQHXrIXeKSJkn0HwDPF72-j_r0TraOJy2wvStthdftsyAjuQ_WCiw',
             'Content-Type': 'application/json',
             # 'User-Agent': get_user_agent(),
         }
@@ -404,16 +409,20 @@ class StockXManager:
             data = response.json()
             # data = brotli.decompress(response.content).json()
             for item in data['data']['product']['variants']:
-                # id_stockx = item['id']
+                id_stockx = item['id']
                 size = item['market']['bidAskData']['highestBidSize']
 
-                self._query_insert_data_with_size(brand=brand, model_no=model_no, product_name=product_name, size=size, urlkey=urlkey)
+                self._query_insert_data_with_size(brand=brand, model_no=model_no, product_name=product_name, size=size, urlkey=urlkey, id_stockx=id_stockx)
 
             return True
-    def _query_insert_data_with_size(self, brand, model_no, product_name, size, urlkey):
+    def _query_insert_data_with_size(self, brand, model_no, product_name, size, urlkey, id_stockx):
         try:
-            query = "INSERT INTO sneakers_price (brand, model_no, product_name, size_stockx, urlkey) VALUES (%s, %s, %s, %s, %s)"
-            self.cursor.execute(query, (brand, model_no, product_name, size, urlkey))
+            ## 임시로 id_stockx만 업데이트
+            # query = "UPDATE sneakers_price SET id_stockx=%s WHERE model_no=%s AND size_stockx=%s"
+            # self.cursor.execute(query, (id_stockx, model_no, size))
+
+            query = "INSERT INTO sneakers_price (brand, model_no, product_name, size_stockx, urlkey, id_stockx) VALUES (%s, %s, %s, %s, %s, %s)"
+            self.cursor.execute(query, (brand, model_no, product_name, size, urlkey, id_stockx))
 
             self.con.commit()
         except Exception as e:
@@ -429,6 +438,14 @@ class StockXManager:
         data = self.cursor.fetchall()
             
         return data
+    def _query_select_id_stockx_in_urlkey(self, urlkey):
+        query = "SELECT id_stockx FROM sneakers_price WHERE urlkey=%s"
+        self.cursor.execute(query, (urlkey))
+
+        data = self.cursor.fetchall()
+            
+        return data
+
 
     # size랑 price 받아오는 리소스가 동일하다.
     def _request_post_price(self, urlkey):
@@ -453,19 +470,61 @@ class StockXManager:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
             'x-operation-name': 'GetMarketData',
             'x-stockx-device-id': '052ebc20-b6ba-48e5-b3a9-d94b8a64df2a',
-            'Authorization': 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5USkNNVVEyUmpBd1JUQXdORFk0TURRelF6SkZRelV4TWpneU5qSTNNRFJGTkRZME0wSTNSQSJ9.eyJodHRwczovL3N0b2NreC5jb20vY3VzdG9tZXJfdXVpZCI6ImJmOGQzMDIzLTljNGItMTFlZC05ZjBjLTEyNDczOGI1MGUxMiIsImh0dHBzOi8vc3RvY2t4LmNvbS9nYV9ldmVudCI6IkxvZ2dlZCBJbiIsImlzcyI6Imh0dHBzOi8vYWNjb3VudHMuc3RvY2t4LmNvbS8iLCJzdWIiOiJhdXRoMHw2M2QwN2Y1MTc4ZDEwYmU5ZGYzNTk4YWQiLCJhdWQiOiJnYXRld2F5LnN0b2NreC5jb20iLCJpYXQiOjE2NzU1MjEzMjksImV4cCI6MTY3NTU2NDUyOSwiYXpwIjoiT1Z4cnQ0VkpxVHg3TElVS2Q2NjFXMER1Vk1wY0ZCeUQiLCJzY29wZSI6Im9mZmxpbmVfYWNjZXNzIn0.TQqjtxiSX-73koX_tKoPf_O-Dw2o-3MwgrGUNohKaD3G63H4JDqY5zQhOrysmgdpXHBL0R4tTW2IP1FECcsxNc4ULjolGCMNqhHJFR7Ad1aP0Fb8Wa4OJvAZQLqRgyAtJ1hXCNjK8P2PZLyfHnF2MQ6L3bj5seX1gbWz53oamhsCGZJHCbchGA7nNe8sTMzduua3AZ2bTfxwiPc8HW-ATQQZeHc3V32esMydO9Pas5KAu_2K8FD0XcOzWNLuyrXM3kw0dIMLiyWLXLon57RB1x5Qselxzio9PEork0mxhE-yEL6cxGtpegxO6SBxFM3GfDZx-KiDTcgG5Cr2jYKU2g',
+            'Authorization': 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5USkNNVVEyUmpBd1JUQXdORFk0TURRelF6SkZRelV4TWpneU5qSTNNRFJGTkRZME0wSTNSQSJ9.eyJodHRwczovL3N0b2NreC5jb20vY3VzdG9tZXJfdXVpZCI6ImJmOGQzMDIzLTljNGItMTFlZC05ZjBjLTEyNDczOGI1MGUxMiIsImh0dHBzOi8vc3RvY2t4LmNvbS9nYV9ldmVudCI6IkxvZ2dlZCBJbiIsImlzcyI6Imh0dHBzOi8vYWNjb3VudHMuc3RvY2t4LmNvbS8iLCJzdWIiOiJhdXRoMHw2M2QwN2Y1MTc4ZDEwYmU5ZGYzNTk4YWQiLCJhdWQiOiJnYXRld2F5LnN0b2NreC5jb20iLCJpYXQiOjE2NzU2Nzg0MDQsImV4cCI6MTY3NTcyMTYwNCwiYXpwIjoiT1Z4cnQ0VkpxVHg3TElVS2Q2NjFXMER1Vk1wY0ZCeUQiLCJzY29wZSI6Im9mZmxpbmVfYWNjZXNzIn0.j8l4GwvwMEm-hp5vPKexLQK7AFTlNSF3cIwfSUedK1B6jKJ0AqKSgM1XxQp9RoD6lwyy4iMAwlrEC2GA4FUTx7ROSEn45IgWSUq2fTaT4pR7xO5GfmOqgdMZpW346bnBvDANloHSE3NlUy5C7UWPD2993erkc1j1kqbOV8JyCPk06aWZAxes1n-JeptnBWVuZRcXfVZiVqsHVkaOekLtq4ybo_RbcT2_Hst3qmdpewuf2RdvHzXHAAWyoVdiG-SXJ3xuCo3BEpBXfiLITxozLbihJO5EeIOkAsQHXrIXeKSJkn0HwDPF72-j_r0TraOJy2wvStthdftsyAjuQ_WCiw',
             'Content-Type': 'application/json',
+            'Cookie': 'stockx_selected_currency=USD;',
             # 'User-Agent': get_user_agent(),
         }
         payload = json.dumps({
             "query": "query GetMarketData($id: String!, $currencyCode: CurrencyCode, $countryCode: String!, $marketName: String) {\n  product(id: $id) {\n    id\n    urlKey\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n    variants {\n      id\n      market(currencyCode: $currencyCode) {\n        bidAskData(country: $countryCode, market: $marketName) {\n          highestBid\n          highestBidSize\n          lowestAsk\n          lowestAskSize\n        }\n      }\n    }\n    ...BidButtonFragment\n    ...BidButtonContentFragment\n    ...BuySellFragment\n    ...BuySellContentFragment\n    ...XpressAskPDPFragment\n  }\n}\n\nfragment BidButtonFragment on Product {\n  id\n  title\n  urlKey\n  sizeDescriptor\n  productCategory\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n    }\n  }\n  media {\n    imageUrl\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n  }\n}\n\nfragment BidButtonContentFragment on Product {\n  id\n  urlKey\n  sizeDescriptor\n  productCategory\n  lockBuying\n  lockSelling\n  minimumBid(currencyCode: $currencyCode)\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n      numberOfAsks\n    }\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n        numberOfAsks\n      }\n    }\n  }\n}\n\nfragment BuySellFragment on Product {\n  id\n  title\n  urlKey\n  sizeDescriptor\n  productCategory\n  lockBuying\n  lockSelling\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n    }\n  }\n  media {\n    imageUrl\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n  }\n}\n\nfragment BuySellContentFragment on Product {\n  id\n  urlKey\n  sizeDescriptor\n  productCategory\n  lockBuying\n  lockSelling\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n    }\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n  }\n}\n\nfragment XpressAskPDPFragment on Product {\n  market(currencyCode: $currencyCode) {\n    state(country: $countryCode) {\n      numberOfCustodialAsks\n    }\n  }\n  variants {\n    market(currencyCode: $currencyCode) {\n      state(country: $countryCode) {\n        numberOfCustodialAsks\n      }\n    }\n  }\n}\n",
             "variables": {
                 "id": urlkey,
-                "currencyCode": "KRW",
+                "currencyCode": "USD",
                 "countryCode": "KR",
                 "marketName": None
             },
             "operationName": "GetMarketData"
+        })
+        # response = requests.post(url, headers=headers, data=payload)
+        response = requests.request("POST", url, headers=headers, data=payload)
+        # proxies = set_proxies()
+        # response = requests.post(url, headers=headers, data=data, proxies=proxies, timeout=3)
+        return response
+    def _request_get_price_recent(self, urlkey, id_stockx):
+        url = "https://stockx.com/api/p/e"
+        headers = {
+            'Accept': '*/*',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'ko-KR',
+            'apollographql-client-name': 'Iron',
+            'apollographql-client-version': '2023.01.29.00',
+            'app-platform': 'Iron',
+            'app-version': '2023.01.29.00',
+            'Origin': 'https://stockx.com',
+            'Referer': 'https://stockx.com/ko-kr/'+urlkey,
+            'sec-ch-ua': '"Not_A Brand";v="99", "Google Chrome";v="109", "Chromium";v="109"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'same-origin',
+            'selected-country': 'KR',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+            'x-operation-name': 'GetMarketData',
+            'x-stockx-device-id': '052ebc20-b6ba-48e5-b3a9-d94b8a64df2a',
+            'Authorization': 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5USkNNVVEyUmpBd1JUQXdORFk0TURRelF6SkZRelV4TWpneU5qSTNNRFJGTkRZME0wSTNSQSJ9.eyJodHRwczovL3N0b2NreC5jb20vY3VzdG9tZXJfdXVpZCI6ImJmOGQzMDIzLTljNGItMTFlZC05ZjBjLTEyNDczOGI1MGUxMiIsImh0dHBzOi8vc3RvY2t4LmNvbS9nYV9ldmVudCI6IkxvZ2dlZCBJbiIsImlzcyI6Imh0dHBzOi8vYWNjb3VudHMuc3RvY2t4LmNvbS8iLCJzdWIiOiJhdXRoMHw2M2QwN2Y1MTc4ZDEwYmU5ZGYzNTk4YWQiLCJhdWQiOiJnYXRld2F5LnN0b2NreC5jb20iLCJpYXQiOjE2NzU2Nzg0MDQsImV4cCI6MTY3NTcyMTYwNCwiYXpwIjoiT1Z4cnQ0VkpxVHg3TElVS2Q2NjFXMER1Vk1wY0ZCeUQiLCJzY29wZSI6Im9mZmxpbmVfYWNjZXNzIn0.j8l4GwvwMEm-hp5vPKexLQK7AFTlNSF3cIwfSUedK1B6jKJ0AqKSgM1XxQp9RoD6lwyy4iMAwlrEC2GA4FUTx7ROSEn45IgWSUq2fTaT4pR7xO5GfmOqgdMZpW346bnBvDANloHSE3NlUy5C7UWPD2993erkc1j1kqbOV8JyCPk06aWZAxes1n-JeptnBWVuZRcXfVZiVqsHVkaOekLtq4ybo_RbcT2_Hst3qmdpewuf2RdvHzXHAAWyoVdiG-SXJ3xuCo3BEpBXfiLITxozLbihJO5EeIOkAsQHXrIXeKSJkn0HwDPF72-j_r0TraOJy2wvStthdftsyAjuQ_WCiw',
+            'Content-Type': 'application/json',
+            # 'User-Agent': get_user_agent(),
+        }
+        payload = json.dumps({
+        "query": "query GetProductMarketSales($productId: String!, $currencyCode: CurrencyCode, $first: Int, $isVariant: Boolean!) {\n  product(id: $productId) @skip(if: $isVariant) {\n    id\n    market(currencyCode: $currencyCode) {\n      ...MarketSalesFragment\n    }\n  }\n  variant(id: $productId) @include(if: $isVariant) {\n    id\n    market(currencyCode: $currencyCode) {\n      ...MarketSalesFragment\n    }\n  }\n}\n\nfragment MarketSalesFragment on Market {\n  sales(first: $first) {\n    edges {\n      cursor\n      node {\n        amount\n        associatedVariant {\n          id\n          traits {\n            size\n          }\n        }\n        createdAt\n      }\n    }\n  }\n}\n",
+        "variables": {
+            "productId": id_stockx,
+            "currencyCode": "USD",
+            "first": 50,
+            "isVariant": True
+        },
+        "operationName": "GetProductMarketSales"
         })
         # response = requests.post(url, headers=headers, data=payload)
         response = requests.request("POST", url, headers=headers, data=payload)
@@ -478,7 +537,11 @@ class StockXManager:
             response = self._request_post_price(urlkey=urlkey)
         except Exception as e:
             print("[StockXManager] : Error(%s) at (urlkey:%s)"%(e, urlkey))
-        if(response.status_code != 200):
+        if(response.status_code == 403):
+            print("status_code: %d request_post_price(url_key:%s)"%(response.status_code, urlkey))
+            ### db 쌓자!
+            return False
+        elif(response.status_code != 200):
             print("status_code: %d request_post_price(url_key:%s)"%(response.status_code, urlkey))
             return False
         else:
@@ -498,9 +561,32 @@ class StockXManager:
 
                     self._query_update_price(size=size, price_buy=price_buy, price_sell=price_sell, urlkey=urlkey)
             except Exception as e:
-                print("[StockX_Manager] : Error(response Parsing 과정) at (urlkey: %s)"%(urlkey))
+                print("[StockX_Manager] : Error(price Parsing 과정) at (urlkey: %s)"%(urlkey))
 
             return True
+    def _update_price_recent(self, urlkey, id_stockx):
+        try:
+            response = self._request_get_price_recent(urlkey=urlkey, id_stockx=id_stockx)
+        except Exception as e:
+            print("[StockXManager] : _request_get_price_recent Error(%s) at (urlkey:%s)"%(e, urlkey))
+        if(response.status_code == 403):
+            ###### DB 쌓자 ######
+            print("status_code: %d _update_price_recent(url_key:%s / id_stockx:%s)"%(response.status_code, urlkey, id_stockx))
+            return False
+        elif(response.status_code != 200):
+            print("status_code: %d _update_price_recent(url_key:%s / id_stockx:%s)"%(response.status_code, urlkey, id_stockx))
+            return False
+        else:
+            try:
+                data = response.json()
+                if(len(data['data']['variant']['market']['sales']['edges']) != 0):
+                    price_recent = data['data']['variant']['market']['sales']['edges'][0]['node']['amount']
+                    self._query_update_price_recent(id_stockx=id_stockx, price_recent=price_recent)
+            except Exception as e:
+                print("[StockX_Manager] : Error(price_recent Parsing 과정) at (urlkey: %s / id_stockx:%s)"%(urlkey, id_stockx))
+
+            return True
+
 
     def _query_update_price(self, size, price_buy, price_sell, urlkey):
         try:
@@ -512,8 +598,19 @@ class StockXManager:
         except Exception as e:
             print(size, price_buy, price_sell, urlkey, price_buy, price_sell)
             print(e)
+    def _query_update_price_recent(self, id_stockx, price_recent):
+        try:
+            query = "UPDATE sneakers_price SET price_recent_stockx=NULLIF(%s, '') WHERE id_stockx=%s"
+            self.cursor.execute(query, (price_recent, id_stockx))
 
-                
+            self.con.commit()
+        except Exception as e:
+            print("_query_update_price_recent error(%s) at id_stockx : %s"%(e, id_stockx))
+            
+
+
+
+    
 
     ########################################################################################################################################################################
     def connect_db(self):
@@ -528,5 +625,5 @@ if __name__ == '__main__':
     StockXManager = StockXManager()
     # StockXManager.scrap_product()
     # StockXManager.scrap_model_no(batch=50, delay_min=1, delay_max=1, id_start=423)
-    StockXManager.scrap_size(batch=50, delay_min=1, delay_max=1, id_start=1)
-    # StockXManager.scrap_price(batch=20, delay_min=0.5, delay_max=0.8, id_start=7)
+    # StockXManager.scrap_size(batch=50, delay_min=1, delay_max=1, id_start=1)
+    StockXManager.scrap_price(batch=20, delay_min=0.5, delay_max=0.8, id_start=162)
