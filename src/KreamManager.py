@@ -5,104 +5,50 @@ import time
 
 class KreamManager:
     def __init__(self):
-        self.con = self.connect_db()
-        self.cursor = self.con.cursor()
+        # self.time_last_request = time.time()
+        pass
 
     def __del__(self):
-        self.con.close()
-
-    ##### 기능 1. (일회성) 상품 스크랩 #####
-    def scrap_product(self):
-        print("[Kream_Manager] : 상품 Srap 시작합니다.")
-        tic = time.time()
-        page = 1
-        while(1) :
-            sleep_random(0.3, 0.5)
-            response = self._request_get_productlist_page_N(page)
-            state = self._parse_productinfo(response)
-
-            toc = time.time()
-            print("[Kream_Manager] : %d page - %.0f" %(page, toc-tic))
-            
-            if(state):
-                page = page + 1
-            else:
-                break
+        pass
+    
+    ### 1. 페이지 돌며 전체 상품 긁기 ###
+    # input : page, brand_list
+    # output : state, list[dict{brand, id_kream, product_name, model_no, size_mm, size_us}]
+    def scrap_productlist_page(self, page, brand_list=['Nike', 'Jordan', 'Adidas', 'New Balance']):
+        data = []
+        response = self._get_productlist_page(page=page)
+        if(response.status_code == 200):
+            data = self._parse_productinfo(response=response, brand_list=brand_list)
+            state = True
+        elif(response.status_code != 200):
+            print("[KreamManager] : Error Code(%s) at '_get_productlist_page' with [page=%s]) "%(response.status_code, page))
+            state = False
         
-        toc = time.time()
-        print("[Kream_Manager] : 상품 Srap 완료되었습니다. %.0fmin"%((toc-tic)/60))
+        return state, data
 
-    ##### 기능 2. (주기성) 가격 스크랩 ##### (Kream은 3600 per 1hour)
-    def scrap_price(self, batch=40, delay_min=0.2, delay_max=0.5, id_start=1):
-        tic = time.time()
-        print("[Kream_Manager] : 가격 Scrap 시작합니다.")
-        cnt_total = self._query_count_total(table="sneakers_price")
+    ### 2. 가격 긁기 ###
+    # input : id_kream, size_mm, size_us
+    # output : state, dict{price_buy, price_sell, price_recent}
+    def scrap_price(self, id_kream, size_mm, size_us):
+        data = {}
+        if(size_mm == '' and size_us ==''):
+            return False, data
+        
+        size_kream = self._parse_keram_size(size_mm, size_us)
+        response = self._request_price(id_kream=id_kream, size=size_kream)
+        if(response.status_code == 200):
+            data = self._parse_priceinfo(response=response)
+            state = True
+        elif(response.status_code != 200):
+            print("[KreamManager] : Error Code(%s) at '_request_price' with [id_kream=%s, size_mm=%s, size_us=%s]) "%(response.status_code, id_kream, size_mm, size_us))
+            state = False
 
-        while(1):
-            id_end = min(id_start + batch -1, cnt_total)
-            data = self._query_fetch_size(table="sneakers_price", id_start=id_start, id_end=id_end)
+        return state, data
+        
 
-            ## 처리
-            for (id, id_kream, size_kream_mm, size_kream_us) in data:
-                if(size_kream_mm == "" and size_kream_us == ""):
-                    continue
-
-                # URL용 size 재조합
-                size_kream = self._parse_keram_size(size_kream_mm, size_kream_us)
-                
-                sleep_random(delay_min, delay_max)
-                response = self._request_price(id_kream=id_kream, size=size_kream)
-                state, price_buy, price_sell, price_recent = self._parse_priceinfo(response)
-
-                if(state):
-                    self._query_update_priceinfo(id, id_kream=id_kream, size_kream_mm=size_kream_mm, size_kream_us=size_kream_us, price_buy=price_buy, price_sell=price_sell, price_recent=price_recent)
-            
-            toc = time.time()
-            print("[Kream_Manager] : 처리중(%6d/%d) - %.1fmin"%(id_end, cnt_total, (toc-tic)/60))
-            # 처리 끝났으면 while 조건 체크
-            if(id_end == cnt_total):
-                break
-            else:
-                id_start = id_start + batch
-
-    ##### 기능 3. (일회성 - 임시) 가격 없는애들만 뽑아서 스크랩 ##### 
-    def scrap_price_which_is_none(self, batch=1000, delay_min=0.2, delay_max=0.5, id_start=1):
-        tic = time.time()
-        print("[Kream_Manager] : 가격 Scrap 시작합니다.")
-        cnt_total = self._query_count_total(table="sneakers_price")
-
-        while(1):
-            id_end = min(id_start + batch -1, cnt_total)
-            data = self._query_fetch_size_which_price_is_none(table="sneakers_price", id_start=id_start, id_end=id_end)## 임시
-
-            ## 처리
-            for (id, id_kream, size_kream_mm, size_kream_us) in data:
-                if(size_kream_mm == "" and size_kream_us == ""):
-                    continue
-
-                # URL용 size 재조합
-                size_kream = self._parse_keram_size(size_kream_mm, size_kream_us)
-                
-                sleep_random(delay_min, delay_max)
-                response = self._request_price(id_kream=id_kream, size=size_kream)
-                state, price_buy, price_sell, price_recent = self._parse_priceinfo(response)
-
-                if(state):
-                    self._query_update_priceinfo(id, id_kream=id_kream, size_kream_mm=size_kream_mm, size_kream_us=size_kream_us, price_buy=price_buy, price_sell=price_sell, price_recent=price_recent)
-            
-            toc = time.time()
-            print("[Kream_Manager] : 처리중(%6d/%d) - %.1fmin"%(id_end, cnt_total, (toc-tic)/60))
-            # 처리 끝났으면 while 조건 체크
-            if(id_end == cnt_total):
-                break
-            else:
-                id_start = id_start + batch
-
-
-
-    ########################################################################################################################################################################
-    ##### 기능 1 관련 함수 #####
-    def _request_get_productlist_page_N(self, page):
+    
+    ##### 기능 1 관련 함수 #############################################################################################################################################################################
+    def _get_productlist_page(self, page):
         url = "https://kream.co.kr/api/p/products?category_id=34&per_page=40&cursor="+str(page)+"&request_key=b9958edc-cea2-478c-87a2-f5f9920020d6"
         headers = {
             'content-type': 'application/json',
@@ -122,16 +68,17 @@ class KreamManager:
         response = requests.get(url, headers=headers)
         return response
 
-    def _parse_productinfo(self, response):
-        if(response.status_code != 200):
-            print(response.status_code)
-            return False
+    def _parse_productinfo(self, response, brand_list):
+        output_productlist = []
+
+        data = response.json()
+        if(data['next_cursor'] == None):
+            print("[Kream_Manager] : 마지막 페이지 입니다.")
+        
         else:
-            data = response.json()
             for item in data['items']:
                 #### PreProcessing (Nike, Jordan, Adidas, New Balance, Vans, Converse)
-                if(self._filter_brand(item, ['Nike', 'Jordan', 'Adidas', 'New Balance'])):
-                # if(self._filter_brand(item, 'Nike')):
+                if(self._filter_brand(item, brand_list)):
                     product = self.new_product()
                     product['brand'] = item['brand']['name']                 ## 브랜드
                     # product['size'] = item['options']                       ## 사이즈
@@ -168,24 +115,12 @@ class KreamManager:
                                     sizes = sizes.strip()
                                     product['size_us'] = sizes
 
-                            self._query_insert_productinfo(product)
+                            ## 저장해야함.
+                            output_productlist.append(product)
+                            
                     del product
 
-            if(data['next_cursor'] == None):
-                print("[Kream_Manager] : 마지막 페이지 입니다.")
-                return False
-            else:
-                return True
-
-    def _query_insert_productinfo(self, product):
-        try:
-            query = "INSERT INTO kream (brand, model_no, product_name, id_kream, size_mm, size_us) VALUES (%s, %s, %s, %s, %s, %s)" 
-            self.cursor.execute(query, (product['brand'], product['model_no'], product['product_name'], product['id_kream'], product['size_mm'], product['size_us']))
-
-            self.con.commit()
-        except Exception as e:
-            print(product)
-            print(e)
+        return output_productlist
 
     def _filter_brand(self, item, filter):
         if(type(filter) == list):
@@ -197,9 +132,8 @@ class KreamManager:
             if(item['brand']['name'] == filter):
                     return True
 
-
         else:
-            print("_filter_brand cannot filter type %s"%(type(filter)))
+            print("[KreamManager] : '_filter_brand' cannot filter type %s"%(type(filter)))
 
         return False
 
@@ -221,31 +155,7 @@ class KreamManager:
         return product
 
 
-    ########################################################################################################################################################################
-    ##### 기능 2 관련 함수 #####
-    def _query_count_total(self, table):
-        query = "SELECT COUNT(*) FROM %s"%(table)
-        self.cursor.execute(query)
-        result = self.cursor.fetchone()
-        
-        return result[0]
-
-    def _query_fetch_size(self, table, id_start, id_end):
-        query = "SELECT id, id_kream, size_kream_mm, size_kream_us FROM %s WHERE id>%d AND id <%d"%(table, id_start-1, id_end+1)
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-            
-        return data
-
-    def _query_fetch_size_which_price_is_none(self, table, id_start, id_end):
-        query = "SELECT id, id_kream, size_kream_mm, size_kream_us FROM %s WHERE id>%d AND id <%d AND ((price_buy_kream IS NULL) AND (price_sell_kream IS NULL))"%(table, id_start-1, id_end+1)
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-            
-        return data
-
+    ##### 기능 2 관련 함수 #############################################################################################################################################################################
     def _parse_keram_size(self, size_mm, size_us):
         if(size_us == ""):
             size_kream = size_mm
@@ -268,51 +178,19 @@ class KreamManager:
         return response
 
     def _parse_priceinfo(self, response):
-        price_buy = ""
-        price_sell = ""
-        price_recent= ""
+        output = {
+            'price_buy' : 0,
+            'price_sell' : 0,
+            'price_recent': 0
+        }
 
-        if(response.status_code == 429):
-            print(response.headers)
-        elif(response.status_code != 200):
-            print(response.status_code)
-            return False, price_buy, price_sell, price_recent
-        else:
-            data = response.json()
-            price_buy = data['market']['lowest_ask']
-            price_sell = data['market']['highest_bid']
-            price_recent = data['market']['last_sale_price']
+        data = response.json()
+        output['price_buy'] = data['market']['lowest_ask']
+        output['price_sell'] = data['market']['highest_bid']
+        output['price_recent'] = data['market']['last_sale_price']
 
-            return True, price_buy, price_sell, price_recent
-
-    def _query_update_priceinfo(self, id, id_kream, size_kream_mm, size_kream_us, price_buy, price_sell, price_recent):
-        try:
-            # query = "INSERT INTO sneakers_price (id, id_kream, size_kream_mm, size_kream_us, price_buy_kream, price_sell_kream) VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE price_buy_kream=%s, price_sell_kream=%s"
-            # query = "UPDATE sneakers_price SET price_buy_kream='%s', price_sell_kream='%s' WHERE id_kream=%s AND size_kream_mm=%s AND size_kream_us=%s"
-            query = "UPDATE sneakers_price SET price_buy_kream=NULLIF(%s, ''), price_sell_kream=NULLIF(%s, ''), price_recent_kream=NULLIF(%s, '') WHERE id_kream=%s AND size_kream_mm=%s AND size_kream_us=%s"
-            self.cursor.execute(query, (price_buy, price_sell, price_recent, id_kream, size_kream_mm, size_kream_us))
-
-            self.con.commit()
-        except Exception as e:
-            print(e)
-    
-
-    ########################################################################################################################################################################
-    def connect_db(self):
-        con = pymysql.connect(host='localhost', user='bangki', password='Bangki12!@', db='sneakers', charset='utf8')
-
-        return con
+        return output
 
 
 if __name__ == '__main__':
     KreamManager = KreamManager()
-
-    ## 기능 1.
-    # KreamManager.scrap_product()
-
-    ## 기능 2.
-    # KreamManager.scrap_price(batch=20, delay_min=0.2, delay_max=0.5, id_start=1321)
-
-    KreamManager.scrap_price_which_is_none(batch=500, delay_min=0.2, delay_max=0.5, id_start=6501)
-
-

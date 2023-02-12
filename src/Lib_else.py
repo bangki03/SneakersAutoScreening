@@ -11,7 +11,7 @@ def get_time():
     return datetime.now().strftime('%Y-%m-%d %H:%M')
 
 def get_date():
-    return datetime.now().strftime('%Y%m%d')
+    return datetime.now().strftime('%y%m%d')
 
 def get_user_agent():
     user_agent_list = [

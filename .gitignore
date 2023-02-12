@@ -4,8 +4,5 @@ report/
 .commit_message
 .vscode
 .venv
-src/SneakersManager.py
-src/ReportManager.py
-src/DBManager.py
-src/KreamManager_tmp.py
-src/StockXManager_tmp.py
+src/new
+src/old
