@@ -465,4 +465,4 @@ if __name__ == '__main__':
 
     # SneakersManager.scrap_price(id_start=159, delay_min=0.9, delay_max=1.0)
 
-    # SneakersManager.export_report_price()
+    SneakersManager.export_report_price()

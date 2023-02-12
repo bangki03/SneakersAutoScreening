@@ -25,6 +25,6 @@ class ReportManager:
         print("[ReportManager] : 상품정보 레포트 발행 완료되었습니다.")
 
     def export_report_price(self):
-        pandas_price = self.DBManager._fetch_sneakers_product(option_pandas=True)
+        pandas_price = self.DBManager._fetch_sneakers_price(option_pandas=True)
         filename = 'report\[%s][SASS_Price].csv'%(self.date)
         pandas_price.to_csv(filename, index=False)
