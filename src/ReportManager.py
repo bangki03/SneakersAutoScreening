@@ -7,19 +7,29 @@ class ReportManager:
         self.date = get_date()
         
 
-    def export_report_proudct(self):
-        pandas_kream = self.DBManager._fetch_kream_product(option_pandas=True)
-        filename_kream = 'report\[%s][Item_List][kream].csv'%(self.date)
-        pandas_kream.to_csv(filename_kream, index=False)
+    def export_report_proudct(self, table):
+        if(table == 'kream'):
+            pandas_kream = self.DBManager._fetch_kream_product(option_pandas=True)
+            filename_kream = 'report\[%s][Item_List][kream].csv'%(self.date)
+            pandas_kream.to_csv(filename_kream, index=False)
 
+        elif(table == 'stockx'):
+            pandas_stockx = self.DBManager._fetch_stockx_product(option_pandas=True)
+            filename_stockx = 'report\[%s][Item_List][stockx].csv'%(self.date)
+            pandas_stockx.to_csv(filename_stockx, index=False)
 
-        pandas_stockx = self.DBManager._fetch_stockx_product(option_pandas=True)
-        filename_stockx = 'report\[%s][Item_List][stockx].csv'%(self.date)
-        pandas_stockx.to_csv(filename_stockx, index=False)
+        elif(table == 'musinsa'):
+            # pandas_sneakers = self.DBManager._fetch_sneakers_product(option_pandas=True)
+            # filename_sneakers = 'report\[%s][Item_List][sneakers].csv'%(self.date)
+            # pandas_sneakers.to_csv(filename_sneakers, index=False)
+            pass
 
-        pandas_sneakers = self.DBManager._fetch_sneakers_product(option_pandas=True)
-        filename_sneakers = 'report\[%s][Item_List][sneakers].csv'%(self.date)
-        pandas_sneakers.to_csv(filename_sneakers, index=False)
+        elif(table == 'sneakers'):
+            pandas_sneakers = self.DBManager._fetch_sneakers_product(option_pandas=True)
+            filename_sneakers = 'report\[%s][Item_List][sneakers].csv'%(self.date)
+            pandas_sneakers.to_csv(filename_sneakers, index=False)
+
+        
     
 
         print("[ReportManager] : 상품정보 레포트 발행 완료되었습니다.")

@@ -34,7 +34,7 @@ class KreamManager:
         if(size_mm == '' and size_us ==''):
             return False, data
         
-        size_kream = self._parse_keram_size(size_mm, size_us)
+        size_kream = self._parse_kream_size(size_mm, size_us)
         response = self._request_price(id_kream=id_kream, size=size_kream)
         if(response.status_code == 200):
             data = self._parse_priceinfo(response=response)
@@ -80,7 +80,7 @@ class KreamManager:
                 #### PreProcessing (Nike, Jordan, Adidas, New Balance, Vans, Converse)
                 if(self._filter_brand(item, brand_list)):
                     product = self.new_product()
-                    product['brand'] = item['brand']['name']                 ## 브랜드
+                    product['brand'] = item['brand']['name'].lower()                 ## 브랜드
                     # product['size'] = item['options']                       ## 사이즈
                     product['id_kream'] = item['release']['id']                 ## Kream id
                     product['product_name'] = item['release']['name']               ## 이름
@@ -91,12 +91,16 @@ class KreamManager:
                     # product['original_price'] = item['release']['original_price']     ## 발매가
                     # product['has_immediate_delivery_item'] = item['market']['has_immediate_delivery_item']  ## 있는지
 
+                    if(product['model_no']== '-'):
+                        product['model_no'] = None
+
                     ## Size 처리 한 후, For문으로 상품 만들자.
                     if(type(item['options']) == list):
                         for size_raw in item['options']:
                             # 0. 초기화
-                            product['size_mm'] = ''
-                            product['size_us'] = ''
+                            product_copy = product.copy()
+                            product_copy['size_mm'] = ''
+                            product_copy['size_us'] = ''
 
                             # 1. '(' 기준 split
                             size_raw = size_raw.replace(')', '')
@@ -105,18 +109,19 @@ class KreamManager:
                             # 2. 각 단위에 맞게 저장
                             for sizes in size_raw_list:
                                 if(sizes.isnumeric()):
-                                    product['size_mm'] = sizes
+                                    product_copy['size_mm'] = sizes
                                 elif('US' in sizes):
                                     # sizes = sizes.replace('US', '').strip()
                                     sizes = sizes.strip()
-                                    product['size_us'] = sizes
+                                    product_copy['size_us'] = sizes
                                 # 일단은 US 없어도, US에 넣자.
                                 else:
                                     sizes = sizes.strip()
-                                    product['size_us'] = sizes
+                                    product_copy['size_us'] = sizes
 
                             ## 저장해야함.
-                            output_productlist.append(product)
+                            output_productlist.append(product_copy)
+                            del product_copy
                             
                     del product
 
@@ -125,11 +130,11 @@ class KreamManager:
     def _filter_brand(self, item, filter):
         if(type(filter) == list):
             for item_filter in filter:
-                if(item['brand']['name'] == item_filter):
+                if(item['brand']['name'].lower() == item_filter.lower()):
                     return True
 
         elif(type(filter) == str):
-            if(item['brand']['name'] == filter):
+            if(item['brand']['name'].lower() == filter.lower()):
                     return True
 
         else:
@@ -156,7 +161,7 @@ class KreamManager:
 
 
     ##### 기능 2 관련 함수 #############################################################################################################################################################################
-    def _parse_keram_size(self, size_mm, size_us):
+    def _parse_kream_size(self, size_mm, size_us):
         if(size_us == ""):
             size_kream = size_mm
         else:
@@ -188,6 +193,13 @@ class KreamManager:
         output['price_buy'] = data['market']['lowest_ask']
         output['price_sell'] = data['market']['highest_bid']
         output['price_recent'] = data['market']['last_sale_price']
+
+        if(output['price_buy'] == '' or output['price_buy'] == None):
+            output['price_buy'] = 0
+        if(output['price_sell'] == '' or output['price_sell'] == None):
+            output['price_sell'] = 0
+        if(output['price_recent'] == '' or output['price_recent'] == None):
+            output['price_recent'] = 0
 
         return output
 
