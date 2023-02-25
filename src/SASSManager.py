@@ -79,19 +79,28 @@ class SASSManager:
     def _update_price_musinsa(self, id_start=1):
         self.MusinsaManager.update_price(id_start=id_start)
         
+
+
+    # 동작 10. Report 출력
+    def _report_sneakers_price(self):
+        self.ReportManager.Export_table(table='sneakers_price')
+
     
 if __name__ == '__main__':
     SASSManager = SASSManager()
 
+    ### 상품 업데이트 ###
     # SASSManager._update_product_sneakers()      # 검증 완료
     # SASSManager._update_product_musinsa()       # to_musinsa / musinsa to sneakers_price 둘 다 검증 완료.
     # SASSManager._update_product_kream()     
 
-
     
-    
-
+    ### 가격 업데이트 ###
     # SASSManager._update_price_all(id_start=187)  
-    SASSManager._update_price_stockx(id_start=775)    # 검증 완료
-    # SASSManager._update_price_kream(id_start=182)
+    SASSManager._update_price_stockx(id_start=3447)
+    # SASSManager._update_price_kream(id_start=1)
     # SASSManager._update_price_musinsa(id_start=1)
+
+
+    ### 레포트 ###
+    SASSManager._report_sneakers_price()

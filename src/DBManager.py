@@ -283,7 +283,7 @@ class DBManager:
         return data
     
     ### 4) Distinct id_musinsa (musinsa 가격 업데이트 필요한 상품군 불러오기 위함) ###
-    def sneakers_price_fetch_id_muisnsa(self):
+    def sneakers_price_fetch_id_musinsa(self):
         query = "SELECT DISTINCT id_musinsa from sneakers_price WHERE id_musinsa IS NOT NULL"
         self.cursor.execute(query)
         data = self.cursor.fetchall()
@@ -308,4 +308,35 @@ class DBManager:
     
     
     
-    
+    ### 기타) urlkey 의 index 출력 ###
+    def sneakers_price_fetch_index(self, market, key):
+        if(market == 'stockx'):
+            data = self.sneakers_price_fetch_urlkey()
+            return [index for index, item in enumerate(data) if item['urlkey'] == key][0] + 1
+        
+        elif(market == 'kream'):
+            data = self.sneakers_price_fetch_id_kream()
+            aa = [index for index, item in enumerate(data) if item['id_kream'] == key]
+
+            return [index for index, item in enumerate(data) if item['id_kream'] == key][0] + 1
+        
+        elif(market == 'musinsa'):
+            data = self.sneakers_price_fetch_id_musinsa()
+            return [index for index, item in enumerate(data) if item['id_musinsa'] == key][0] + 1
+        
+
+
+
+
+    def table_fetch(self, table, option_pandas):
+        query = "SELECT * FROM %s"%(table)
+        if(option_pandas):
+            data = pandas.read_sql_query(query, self.con)
+            return data
+
+
+
+if __name__ == '__main__':
+    DBManager = DBManager()
+    # print(DBManager.sneakers_price_fetch_index('kream', 80245))
+    print(DBManager.sneakers_price_fetch_index('stockx', 'new-balance-993-aime-leon-dore-brown'))

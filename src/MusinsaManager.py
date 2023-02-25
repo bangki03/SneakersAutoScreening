@@ -53,7 +53,7 @@ class MusinsaManager:
     def update_price(self, id_start=1):
         print("[MusinsaManager] : 가격 스크랩 시작합니다.")
 
-        data = self.DBManager.sneakers_price_fetch_id_muisnsa()
+        data = self.DBManager.sneakers_price_fetch_id_musinsa()
         cnt_total = len(data)
 
         tic=time.time()

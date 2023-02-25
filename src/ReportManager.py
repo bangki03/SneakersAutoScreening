@@ -19,7 +19,7 @@ class ReportManager:
 
     #######################################################################################################################################
     #######################################################################################################################################
-    ### 동작 1. 상품 업데이트
+    ### 동작 1. 로그
     #######################################################################################################################################
     #######################################################################################################################################
     def log_text(self):
@@ -28,10 +28,34 @@ class ReportManager:
 
     #######################################################################################################################################
     #######################################################################################################################################
-    ### 동작 2. 가격 업데이트
+    ### 동작 2. 레포트
     #######################################################################################################################################
     #######################################################################################################################################
-
+    def Export_table(self, table):
+        if(table == 'sneakers_price'):
+            pandas_price = self.DBManager.table_fetch(table=table, option_pandas=True)
+            filename = 'report\[%s][sneakers_price].csv'%(self.date)
+            pandas_price.to_csv(filename, index=False)
+        elif(table == 'stockx'):
+            pandas_price = self.DBManager.table_fetch(table=table, option_pandas=True)
+            filename = 'report\[%s][stockx].csv'%(self.date)
+            pandas_price.to_csv(filename, index=False)
+        elif(table == 'kream'):
+            pandas_price = self.DBManager.table_fetch(table=table, option_pandas=True)
+            filename = 'report\[%s][kream].csv'%(self.date)
+            pandas_price.to_csv(filename, index=False)
+        elif(table == 'musinsa'):
+            pandas_price = self.DBManager.table_fetch(table=table, option_pandas=True)
+            filename = 'report\[%s][musinsa].csv'%(self.date)
+            pandas_price.to_csv(filename, index=False)
+        else:
+            print("No Table named(%s)"%(table))
+            
+            
+        
+if __name__ == '__main__':
+    ReportManager = ReportManager()
+    ReportManager
 
 
 
