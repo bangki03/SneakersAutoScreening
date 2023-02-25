@@ -1,38 +1,120 @@
 import requests
-import pymysql
 import json
 from Lib_else import sleep_random, get_user_agent, set_proxies
 import time
 import brotli
 
 class StockXManager:
-    def __init__(self):
-        self.auth_token = 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5USkNNVVEyUmpBd1JUQXdORFk0TURRelF6SkZRelV4TWpneU5qSTNNRFJGTkRZME0wSTNSQSJ9.eyJodHRwczovL3N0b2NreC5jb20vY3VzdG9tZXJfdXVpZCI6ImJmOGQzMDIzLTljNGItMTFlZC05ZjBjLTEyNDczOGI1MGUxMiIsImh0dHBzOi8vc3RvY2t4LmNvbS9nYV9ldmVudCI6IkxvZ2dlZCBJbiIsImh0dHBzOi8vc3RvY2t4LmNvbS9lbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaXNzIjoiaHR0cHM6Ly9hY2NvdW50cy5zdG9ja3guY29tLyIsInN1YiI6ImF1dGgwfDYzZDA3ZjUxNzhkMTBiZTlkZjM1OThhZCIsImF1ZCI6ImdhdGV3YXkuc3RvY2t4LmNvbSIsImlhdCI6MTY3NjY4OTkwOCwiZXhwIjoxNjc2NzMzMTA4LCJhenAiOiJPVnhydDRWSnFUeDdMSVVLZDY2MVcwRHVWTXBjRkJ5RCIsInNjb3BlIjoib2ZmbGluZV9hY2Nlc3MifQ.rKle6VN5gH9y4kHnpINrTqzECyNhYbaWdVqhgec_tYwrKfZLu40YxAqdsMtcpMnDKpQvwP9xMbjAAzszCTwiyPY9PuEvKjWI5IwwIiSB2NWTuQgPR0ursBfNfmjN_w7EZ6b8dxrrj8la7AcPw1LpIiZSZRdXzzmXuZEFTYk-S-qt8kSE3K5Iw8imT27v152-DC8V-YAyCUwZSlq2wJrCOGi9DubWuQGgOTMAZ0civRBpqlS3ECi-VSn7Ak0HmnPGxGNe61XJxA3qVVGgnrCPD8waA0BeMstTrpeq1BvIxFVaYlJGtYWnGdMYD0p06WxLjQX6uVzXDhzMlzAAF1vXUA'
+    def __init__(self, delay_min=0.2, delay_max=0.5):
+        self.brand_list = ['Nike', 'Jordan', 'Adidas', 'New Balance', 'Vans', 'Converse',]
+        self.delay_min = delay_min
+        self.delay_max = delay_max
+        self.last_page = 25
+        self.auth_token = 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5USkNNVVEyUmpBd1JUQXdORFk0TURRelF6SkZRelV4TWpneU5qSTNNRFJGTkRZME0wSTNSQSJ9.eyJodHRwczovL3N0b2NreC5jb20vY3VzdG9tZXJfdXVpZCI6ImJmOGQzMDIzLTljNGItMTFlZC05ZjBjLTEyNDczOGI1MGUxMiIsImh0dHBzOi8vc3RvY2t4LmNvbS9nYV9ldmVudCI6IkxvZ2dlZCBJbiIsImh0dHBzOi8vc3RvY2t4LmNvbS9lbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaXNzIjoiaHR0cHM6Ly9hY2NvdW50cy5zdG9ja3guY29tLyIsInN1YiI6ImF1dGgwfDYzZDA3ZjUxNzhkMTBiZTlkZjM1OThhZCIsImF1ZCI6ImdhdGV3YXkuc3RvY2t4LmNvbSIsImlhdCI6MTY3NzI5MjI2MiwiZXhwIjoxNjc3MzM1NDYyLCJhenAiOiJPVnhydDRWSnFUeDdMSVVLZDY2MVcwRHVWTXBjRkJ5RCIsInNjb3BlIjoib2ZmbGluZV9hY2Nlc3MifQ.WDP4J50jexco82770I6RFgEbGvxCiY2JJT1J8-LAJP7wmRf24KWUg7lARVUgE07RR_S-ZQ_xJXSNQkpLynFb8FjV4oNVRw-cQmuqN95ypOfPk8WPzByTNPlKJQLxBcVuRyyZik5dHcKInKVtTmTnnlZW7I_bwuvlwOdR9MdfbYYfxVOYZpSJiHUHG--laFZXYhgnJOmovfvKTX1VkIpUEslr9AZj1-kdhlkRnfHkI0R-gVRCqTcB4nsnhyPrYTdPS5DnWCBymqFXe41Q3nXlkTTKc8Di_zeKssQLgVJ5V6zi1vyO-Hg7WgKo-NkyATxOVSL5fqKpyVzVYDrCcX5y5w'
         pass
 
+    def __setManagers__(self, SneakersManager, KreamManager, MusinsaManager, DBManager, ReportManager):
+        self.SneakersManager = SneakersManager
+        self.KreamManager = KreamManager
+        self.MusinsaManager = MusinsaManager
+        self.DBManager = DBManager
+        self.ReportManager = ReportManager
 
-    ### 1. 페이지 돌며 전체 상품 긁기 ###
+    ### 동작 1. 상품 업데이트
+    def update_product(self):
+        print("[StockXManager] : 상품 스크랩 시작합니다.")
+
+        data = self.scrap_product_list()
+
+        data_filtered = [item for item in data if not self.DBManager.stockx_check_product_exist(item)]
+        
+        print("[StockXManager] : 신규 상품 %d개 등록합니다."%(len(data_filtered)))
+        for item in data_filtered:
+            self.DBManager.stockx_update_product(item)
+
+        print("[StockXManager] : 상품 등록 완료하였습니다.")
+
+    
+    ### 동작 2. 가격 업데이트
+    def update_price(self, id_start=1):
+        print("[StockXManager] : 가격 스크랩 시작합니다.")
+
+        data = self.DBManager.sneakers_price_fetch_urlkey()
+        cnt_total = len(data)
+
+        tic=time.time()
+        for index, item in enumerate(data):
+            if(index<id_start-1):
+                continue
+
+            state, data_price_list = self.scrap_price(urlkey=item['urlkey'])
+            if(state):
+                for data_price in data_price_list:
+                    data_price.update(item)
+                    self.DBManager.sneakers_price_update_price(market='stockx', product=data_price)
+            
+            toc=time.time()
+            print("[StockXManager] : (%s)가격 스크랩 완료(%d/%d) [%.1fmin]"%(item['urlkey'], index+1, cnt_total, (toc-tic)/60))
+        
+        print("[StockXManager] : 가격 등록 완료하였습니다.")
+
+
+
+
+    #######################################################################################################################################
+    #######################################################################################################################################
+    ### 동작 1. 상품 업데이트
+    #######################################################################################################################################
+    #######################################################################################################################################
+    
+    ### Lv1) 카테고리 별 상품 스크랩 ###
     # input : page, brand_list
     # output : state, list[dict{brand, id_stockx, product_name, urlkey}]
-    def scrap_productlist_page(self, page, brand_list=['Nike', 'Jordan', 'Adidas', 'New Balance']):
+    def scrap_product_list(self):
+        data_output = []
+
+        tic = time.time()
+        for page in range(1, self.last_page + 1):
+            sleep_random(self.delay_min, self.delay_max)
+            state, data_page = self.scrap_productlist_page_sneakers(page=page)
+            if(state):
+                data_output.extend(data_page)
+            toc = time.time()
+            print("[StockXManager] : 상품 스크랩 중 (sneakers - %d page) [%.1fmin]" %(page, (toc-tic)/60))    
+
+        for brand in self.brand_list:
+            for page in range(1, self.last_page + 1):
+                sleep_random(self.delay_min, self.delay_max)
+                state, data_page = self.scrap_productlist_page_brand(brand=brand, page=page)
+                if(state):
+                    data_output.extend(data_page)
+                toc = time.time()
+                print("[StockXManager] : 상품 스크랩 중 (%s - %d page) [%.1fmin]" %(brand, page, (toc-tic)/60))
+
+        return data_output
+
+    ### Lv2-1) sneakers 카테고리 페이지 별 상품 스크랩 ###
+    # input : page, brand_list
+    # output : state, list[dict{brand, id_stockx, product_name, urlkey}]
+    def scrap_productlist_page_sneakers(self, page):
         data = []
         response = self._post_productlist_page(page=page)
         if(response.status_code == 200):
-            state, data = self._parse_productinfo(response=response, brand_list=brand_list)
+            state, data = self._parse_productinfo(response=response, brand_list=self.brand_list)
         elif(response.status_code != 401):
-            print("[StockXManager] : Error Code(%s) at 'scrap_productlist_page' with [page=%s]) "%(response.status_code, page))
+            print("[StockXManager] : Error Code(%s) at 'scrap_productlist_page_sneakers' with [page=%s]) "%(response.status_code, page))
             state = False
         elif(response.status_code != 403):
-            print("[StockXManager] : Error Code(%s) at 'scrap_productlist_page' with [page=%s]) "%(response.status_code, page))
+            print("[StockXManager] : Error Code(%s) at 'scrap_productlist_page_sneakers' with [page=%s]) "%(response.status_code, page))
             state = False
         else:
-            print("[StockXManager] : Error Code(%s) at 'scrap_productlist_page' with [page=%s]) "%(response.status_code, page))
+            print("[StockXManager] : Error Code(%s) at 'scrap_productlist_page_sneakers' with [page=%s]) "%(response.status_code, page))
             state = False
 
         return state, data
     
-    ### 1. 반스 페이지 상품 긁기 ###
-    # input : page, brand_list
+    ### Lv2-2) 특정 브랜드 카테고리 페이지 별 상품 스크랩 ###
+    # input : brand, page
     # output : state, list[dict{brand, id_stockx, product_name, urlkey}]
     def scrap_productlist_page_brand(self, brand, page):
         data = []
@@ -40,109 +122,21 @@ class StockXManager:
         if(response.status_code == 200):
             state, data = self._parse_productinfo(response=response, brand_list=brand)
         elif(response.status_code != 401):
-            print("[StockXManager] : Error Code(%s) at 'scrap_productlist_page' with [page=%s]) "%(response.status_code, page))
+            print("[StockXManager] : Error Code(%s) at 'scrap_productlist_page_brand' with [page=%s]) "%(response.status_code, page))
             state = False
         elif(response.status_code != 403):
-            print("[StockXManager] : Error Code(%s) at 'scrap_productlist_page' with [page=%s]) "%(response.status_code, page))
+            print("[StockXManager] : Error Code(%s) at 'scrap_productlist_page_brand' with [page=%s]) "%(response.status_code, page))
             state = False
         else:
-            print("[StockXManager] : Error Code(%s) at 'scrap_productlist_page' with [page=%s]) "%(response.status_code, page))
+            print("[StockXManager] : Error Code(%s) at 'scrap_productlist_page_brand' with [page=%s]) "%(response.status_code, page))
             state = False
 
         return state, data
 
-    ### 2. 상품별 모델명 긁기 ###
-    # input : urlkey
-    # output : state, dict['model_no']
-    def scrap_model_no(self, urlkey):
-        data = {}
-        # response = self._get_model_no(urlkey)
-        response = self._get_model_no_option(urlkey, browser='whale', language=0)    ## language 1: Korean / 2: French   ## browser
-        if(response.status_code == 200):
-            data['model_no'] = self._parse_model_no(response=response)
-            state = True
-        elif(response.status_code != 401):
-            print("[StockXManager] : Error Code(%s) at 'scrap_model_no' with [urlkey=%s]) "%(response.status_code, urlkey))
-            state = False
-        elif(response.status_code != 403):
-            print("[StockXManager] : Error Code(%s) at 'scrap_model_no' with [urlkey=%s]) "%(response.status_code, urlkey))
-            state = False
-        else:
-            print("[StockXManager] : Error Code(%s) at 'scrap_model_no' with [urlkey=%s]) "%(response.status_code, urlkey))
-            state = False
-
-        return state, data
-
-    ### 3. 상품별 사이즈 스크랩 ###
-    # input : urlkey
-    # output : state, list[dict{id_stockx, size}]
-    def scrap_size(self, urlkey):
-        data = []
-        response = self._post_size(urlkey)
-        if(response.status_code == 200):
-            data = self._parse_size(response=response)
-            state = True
-        elif(response.status_code != 401):
-            print("[StockXManager] : Error Code(%s) at 'scrap_size' with [urlkey=%s]) "%(response.status_code, urlkey))
-            state = False
-        elif(response.status_code != 403):
-            print("[StockXManager] : Error Code(%s) at 'scrap_size' with [urlkey=%s]) "%(response.status_code, urlkey))
-            state = False
-        else:
-            print("[StockXManager] : Error Code(%s) at 'scrap_size' with [urlkey=%s]) "%(response.status_code, urlkey))
-            state = False
-
-        return state, data
-
-    ### 4. 가격 스크랩 ###
-    # input : urlkey
-    # output : state, list[dict{size, price_buy, price_sell}]
-    def scrap_price(self, urlkey):
-        data = []
-        response = self._post_price(urlkey)
-        if(response.status_code == 200):
-            data = self._parse_price(response=response)
-            state = True
-        elif(response.status_code != 401):
-            print("[StockXManager] : Error Code(%s) at 'scrap_price' with [urlkey=%s]) "%(response.status_code, urlkey))
-            state = False
-        elif(response.status_code != 403):
-            print("[StockXManager] : Error Code(%s) at 'scrap_price' with [urlkey=%s]) "%(response.status_code, urlkey))
-            state = False
-        else:
-            print("[StockXManager] : Error Code(%s) at 'scrap_price' with [urlkey=%s]) "%(response.status_code, urlkey))
-            state = False
-
-        return state, data
-    
-    ### 5. 최근체결가 스크랩 ###
-    # input : urlkey
-    # output : state, list[dict{price_recent}]
-    def scrap_price_recent(self, urlkey, id_stockx):
-        data = {}
-        response = self._get_price_recent(urlkey=urlkey, id_stockx=id_stockx)
-        if(response.status_code == 200):
-            data = self._parse_price_recent(response=response)
-            state = True
-        elif(response.status_code != 401):
-            print("[StockXManager] : Error Code(%s) at 'scrap_price' with [urlkey=%s]) "%(response.status_code, urlkey))
-            state = False
-        elif(response.status_code != 403):
-            print("[StockXManager] : Error Code(%s) at 'scrap_price' with [urlkey=%s]) "%(response.status_code, urlkey))
-            state = False
-        else:
-            print("[StockXManager] : Error Code(%s) at 'scrap_price' with [urlkey=%s]) "%(response.status_code, urlkey))
-            state = False
-
-        return state, data
-
-    
-    ##### 기능 1 관련 함수 #############################################################################################################################################################################
+    ### Lv3-1) sneakers 카테고리 페이지 별 상품 Request ###
+    # input : page
+    # output : response
     def _post_productlist_page(self, page):
-        ## 400 : 이해를 못했단겨. 정보를 잘못 넣어서, request 자체를 해석을 못하겠다는.
-        ## 403 : 금지당한거
-        ## 404 : Not Found(서버는 맞는데, 그 안에서 파일을 못찾았단거)
-        
         url = "https://stockx.com/api/p/e"
         headers = {
             'accept-language': 'ko-KR',   ## 이거 안넣으면 404
@@ -177,6 +171,9 @@ class StockXManager:
 
         return response
     
+    ### Lv3-2) sneakers 카테고리 페이지 별 상품 Request ###
+    # input : brand, page
+    # output : response
     def _post_productlist_page_brand(self, brand, page):
         ## 400 : 이해를 못했단겨. 정보를 잘못 넣어서, request 자체를 해석을 못하겠다는.
         ## 403 : 금지당한거
@@ -215,6 +212,9 @@ class StockXManager:
 
         return response
     
+    ### Lv3) 상품 정보 Parsing ###
+    # input : response, filter_brand_list
+    # output : state, list[dict{'id_stockx','brand','product_name','urlkey'}]
     def _parse_productinfo(self, response, brand_list):
         output_productlist = []
         # state = False
@@ -239,6 +239,9 @@ class StockXManager:
         
         return state, output_productlist
     
+    ### Lv4) sneakers 브랜드 Filtering ###
+    # input : product, fiter_list
+    # output : state
     def _filter_brand(self, item, filter):
         if(type(filter) == list):
             for item_filter in filter:
@@ -253,6 +256,10 @@ class StockXManager:
             print("[StockXManager] : '_filter_brand' cannot filter type %s"%(type(filter)))
 
         return False
+    
+    ### Lv4) Product Template 생성 ###
+    # input : 
+    # output : dict{'id_stockx','brand','product_name','urlkey'}
     def new_product(self):
         product = {}
         product['id_stockx'] = ''
@@ -262,336 +269,45 @@ class StockXManager:
         product['urlkey'] = ''
 
         return product
-    
-    ##### 기능 2 관련 함수 #############################################################################################################################################################################
-    def _get_model_no_option(self, urlkey, browser, language=0):
-        if(language==1 or language=='Korean'):
-            url = "https://stockx.com/ko-kr/"+urlkey
-            referer = "https://stockx.com/ko-kr/sneakers"
-        elif(language==2 or language=='French'):
-            url = "https://stockx.com/fr-fr/"+urlkey
-            referer = "https://stockx.com/fr-fr/sneakers"
+
+
+
+
+    #######################################################################################################################################
+    #######################################################################################################################################
+    ### 기타 1. SneakersManager 요청 사항 - 사이즈 정보 요청
+    #######################################################################################################################################
+    #######################################################################################################################################
+
+    ### Lv1) Size 요청
+    # input : urlkey
+    # output : state, list[dict{id_stockx, size}]
+    def scrap_size(self, urlkey):
+        data = []
+        response = self._post_size(urlkey)
+        if(response.status_code == 200):
+            data = self._parse_size(response=response)
+            state = True
+        elif(response.status_code != 401):
+            print("[StockXManager] : Error Code(%s) at 'scrap_size' with [urlkey=%s]) "%(response.status_code, urlkey))
+            state = False
+        elif(response.status_code != 403):
+            print("[StockXManager] : Error Code(%s) at 'scrap_size' with [urlkey=%s]) "%(response.status_code, urlkey))
+            state = False
         else:
-            url = "https://stockx.com/"+urlkey
-            referer = "https://stockx.com/sneakers"
-        
-        ### Chrome ###
-        if (browser=='chrome'):
-            headers = {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Cache-Control': 'max-age=0',
-                # 'Host' : 'https://stockx.com/',
-                # 'Referer': referer,
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',    ## 이거 안넣으면 403 뜸
-                # 'User-Agent' : get_user_agent(),
-                'sec-ch-ua': '"Not_A Brand";v="99", "Google Chrome";v="109", "Chromium";v="109"',
-                'sec-ch-ua-mobile': '?0',
-                'sec-ch-ua-platform': '"Windows"',
-                'sec-fetch-dest': 'document',
-                'sec-fetch-mode': 'navigate',
-                'sec-fetch-site': 'same-origin',
-                'sec-fetch-user': '?1',
-                'upgrade-insecure-requests': '1',
-                # 'Cookie': '__cf_bm=l53SqH28OmKuqJID416v7yJELRnale0hKrqxJOKHWJw-1676295258-0-AdYc6fA8mU8njgz2dyii6tBoH5xiCbyMmp1pp8szts5PIQQ14sH2dJ/9VUD7+DLrP3rUGgc5TACtoVOyKV70E7g=; language_code=en; stockx_device_id=b5bf17d1-f317-40ac-abf3-172da3629943; stockx_selected_region=KR; stockx_session=2079917c-0b4b-475a-b3a1-d1f01fe36d3d'
-            }
-        elif(browser=='edge'):
-            headers = {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Cache-Control': 'max-age=0',
-                # 'Host' : 'https://stockx.com/',
-                'Referer': referer,
-                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.41',    ## 이거 안넣으면 403 뜸
-                #  'User-Agent': 'PostmanRuntime/7.30.1',
-                # 'User-Agent' : get_user_agent(),
-                'sec-ch-ua': '"Chromium";v="110", "Not A(Brand";v="24", "Microsoft Edge";v="110"',
-                'sec-ch-ua-mobile': '?0',
-                'sec-ch-ua-platform': '"Windows"',
-                'sec-fetch-dest': 'document',
-                'sec-fetch-mode': 'navigate',
-                'sec-fetch-site': 'same-origin',
-                'sec-fetch-user': '?1',
-                'upgrade-insecure-requests': '1',
-                # 'Cookie': '__cf_bm=l53SqH28OmKuqJID416v7yJELRnale0hKrqxJOKHWJw-1676295258-0-AdYc6fA8mU8njgz2dyii6tBoH5xiCbyMmp1pp8szts5PIQQ14sH2dJ/9VUD7+DLrP3rUGgc5TACtoVOyKV70E7g=; language_code=en; stockx_device_id=b5bf17d1-f317-40ac-abf3-172da3629943; stockx_selected_region=KR; stockx_session=2079917c-0b4b-475a-b3a1-d1f01fe36d3d'
-            }
-        elif(browser=='whale'):
-            headers = {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Cache-Control': 'max-age=0',
-                # 'Host' : 'https://stockx.com/',
-                'Referer': referer,
-                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Whale/3.19.166.16 Safari/537.36',
-                #  'User-Agent':get_user_agent(),
-                'sec-ch-ua': '"Whale";v="3", "Not-A.Brand";v="8", "Chromium";v="110"',
-                'sec-ch-ua-mobile': '?0',
-                'sec-ch-ua-platform': '"Windows"',
-                'sec-fetch-dest': 'document',
-                'sec-fetch-mode': 'navigate',
-                'sec-fetch-site': 'same-origin',
-                'sec-fetch-user': '?1',
-                'upgrade-insecure-requests': '1',
-                # 'Cookie': '_pxvid=9271baee-ac77-11ed-928a-737365484843; __pxvid=9297c1db-ac77-11ed-8141-0242ac120002; stockx_device_id=a39fc46c-a558-4975-bfa4-19c72ed6642c; language_code=ko; _ga=GA1.2.987222420.1676386634; _gid=GA1.2.1555855740.1676386634; ajs_anonymous_id=8043c869-cc48-412a-91a2-32e2429ecc4e; _ga=GA1.2.987222420.1676386634; _gcl_au=1.1.2146146535.1676386635; rbuid=rbos-f3830f87-314e-4daf-b251-c5fc26007c6f; _pin_unauth=dWlkPVpEbGlOamd3TnpndFpHUm1PUzAwWldRMUxXSTJaVFl0T0RKa01qWTRPREprWkdaaQ; _rdt_uuid=1676386638500.92a659e8-56e9-461f-b46a-441fb9a6881f; __pdst=80da1543827a4c36b2cde24bb1846bae; __ssid=2766985977c05a40673fc1f50c051f5; rskxRunCookie=0; rCookie=is37jx4vs24mdw57yhqifle4dc4bl; stockx_homepage=sneakers; QuantumMetricUserID=2bd3cc24cef169eb343ed7d1f080a117; OptanonAlertBoxClosed=2023-02-14T14:57:59.270Z; lastRskxRun=1676619768006; stockx_session=3de65993-7d61-418e-96e1-a3a47b4d8919; stockx_selected_region=KR; __cf_bm=9XROC5yvqBmzSlu3CX9bbRN2_7j.l0RZaKOQyBnLjMQ-1676700855-0-ARrPP+ye+IwnNDd1nCwLJsoW7ao3VnkknA7/5HeSaib9BVZOBqPXL01dFO0m1cP3HhmnyFz6q3P5nQ7Ew5gMhNE=; _pxff_cc=U2FtZVNpdGU9TGF4Ow==; pxcts=786c7f01-af53-11ed-95dd-73755056584b; _pxff_idp_c=1,s; _pxff_fed=5000; OptanonConsent=isGpcEnabled=0&datestamp=Sat+Feb+18+2023+15%3A14%3A15+GMT%2B0900+(%ED%95%9C%EA%B5%AD+%ED%91%9C%EC%A4%80%EC%8B%9C)&version=202211.2.0&isIABGlobal=false&hosts=&consentId=1528961d-8c0a-4238-a7b0-bc5d7dc91f87&interactionCount=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0004%3A1%2CC0005%3A1%2CC0003%3A1&geolocation=KR%3B11&AwaitingReconsent=false; _gat=1; ftr_blst_1h=1676700856355; _px3=c831f7f650a2b9562a5c03c1ee9466d267c738df5e5d7fb3f285201e746c664b:oyzWqjNATwMlzOzJyqwQ4JdbfOXMUuP2mA8bearA+TOdaxpeozkCfI3fLRPuDEhuFzX3w7S/ACJxvAYm0YbBNw==:1000:Dhb4jR3hnzgmUrfPLnGR4kS83ta/a6xh8F6yNSUZG17cIPQAZurTlyREo9jzu/s5X3UoTk4uMEJaxGl9AGdO2l4Ro6NxLgkEmKjf30OJfkP4kZdxySDnYrF8VoUW7sAdazrHjn8d/L/7nQcmroZwZvlJmrPo4vy8TteVxQDO3Lqa0t19hNKKP9WCPRLXENfG20vfGiQJiEujbghp2xh3rw==; IR_gbd=stockx.com; stockx_preferred_market_activity=sales; IR_9060=1676700860726%7C0%7C1676700860726%7C%7C; IR_PI=c8c767f3-ae0e-11ed-b1d2-0fb0e47f7daa%7C1676787260726; _pxde=9ecc4f9f302d634f791f5ccd3e2752d697001641d4eb1cc81627b63405f5e40a:eyJ0aW1lc3RhbXAiOjE2NzY3MDA4NjA5MjYsImZfa2IiOjB9; stockx_product_visits=1; _uetsid=de23c290ac7711ed87d52d07f9048c28; _uetvid=de23ed70ac7711ed9c13510cbe7ba93d; forterToken=ed90dabe99ff4e3da3b073ba0d1522ff_1676700855808__UDF43-m4_13ck; _dd_s=rum=0&expire=1676701760525'
-            }
+            print("[StockXManager] : Error Code(%s) at 'scrap_size' with [urlkey=%s]) "%(response.status_code, urlkey))
+            state = False
 
-        elif(browser=='postman'):
-            headers = {
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Cache-Control': 'max-age=0',
-                # 'Host' : 'https://stockx.com/',
-                # 'Referer': referer,
-                 'User-Agent': 'PostmanRuntime/7.30.1',
-                # 'User-Agent' : get_user_agent(),
-                'sec-ch-ua': '"Not_A Brand";v="99", "Google Chrome";v="109", "Chromium";v="109"',
-                'sec-ch-ua-mobile': '?0',
-                'sec-ch-ua-platform': '"Windows"',
-                'sec-fetch-dest': 'document',
-                'sec-fetch-mode': 'navigate',
-                'sec-fetch-site': 'same-origin',
-                'sec-fetch-user': '?1',
-                'upgrade-insecure-requests': '1',
-                # 'Cookie': '__cf_bm=l53SqH28OmKuqJID416v7yJELRnale0hKrqxJOKHWJw-1676295258-0-AdYc6fA8mU8njgz2dyii6tBoH5xiCbyMmp1pp8szts5PIQQ14sH2dJ/9VUD7+DLrP3rUGgc5TACtoVOyKV70E7g=; language_code=en; stockx_device_id=b5bf17d1-f317-40ac-abf3-172da3629943; stockx_selected_region=KR; stockx_session=2079917c-0b4b-475a-b3a1-d1f01fe36d3d'
-            }
-        else:
-            headers = {}
-
-        
-        # headers = {
-        #     'Cookie': '__cf_bm=l53SqH28OmKuqJID416v7yJELRnale0hKrqxJOKHWJw-1676295258-0-AdYc6fA8mU8njgz2dyii6tBoH5xiCbyMmp1pp8szts5PIQQ14sH2dJ/9VUD7+DLrP3rUGgc5TACtoVOyKV70E7g=; language_code=en; stockx_device_id=b5bf17d1-f317-40ac-abf3-172da3629943; stockx_selected_region=KR; stockx_session=2079917c-0b4b-475a-b3a1-d1f01fe36d3d'
-        # }
-        # payload = {}
-        # response = requests.get(url, headers=headers)
-        # response = requests.request("GET", url)
-        # response = requests.request("GET", url, headers=headers, data=payload)
-
-        # proxies = set_proxies()
-        # response = requests.request("GET", url, headers=headers, proxies=proxies)
-
-        response = requests.request("GET", url, headers=headers)
-
-        return response
+        return state, data
     
-    def _get_model_no(self, urlkey):
-        url = "https://stockx.com/ko-kr/"+urlkey
-        
-        ### Chrome ###
-        headers = {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Cache-Control': 'max-age=0',
-            # 'Host' : 'https://stockx.com/',
-            # 'Referer': 'https://stockx.com/ko-kr/sneakers',
-             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',    ## 이거 안넣으면 403 뜸
-            #  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Whale/3.19.166.16 Safari/537.36',
-            #  'User-Agent': 'Chrome/110.0.0.0',
-            #  'User-Agent': 'Whale/3.19.166.16',
-            #  'User-Agent': 'PostmanRuntime/7.30.1',
-            #  'User-Agent': 'Edg/110.0.1587.41',
-            # 'User-Agent' : get_user_agent(),
-            'sec-ch-ua': '"Not_A Brand";v="99", "Google Chrome";v="109", "Chromium";v="109"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
-            'sec-fetch-dest': 'document',
-            'sec-fetch-mode': 'navigate',
-            'sec-fetch-site': 'same-origin',
-            'sec-fetch-user': '?1',
-            'upgrade-insecure-requests': '1',
-            # 'Cookie': '__cf_bm=l53SqH28OmKuqJID416v7yJELRnale0hKrqxJOKHWJw-1676295258-0-AdYc6fA8mU8njgz2dyii6tBoH5xiCbyMmp1pp8szts5PIQQ14sH2dJ/9VUD7+DLrP3rUGgc5TACtoVOyKV70E7g=; language_code=en; stockx_device_id=b5bf17d1-f317-40ac-abf3-172da3629943; stockx_selected_region=KR; stockx_session=2079917c-0b4b-475a-b3a1-d1f01fe36d3d'
-        }
-
-        ### Whale ###
-        # headers = {
-        #     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-        #     'Accept-Encoding': 'gzip, deflate, br',
-        #     'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-        #     'Cache-Control': 'max-age=0',
-        #     # 'Host' : 'https://stockx.com/',
-        #     'Referer': 'https://stockx.com/ko-kr/sneakers',
-        #     #  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',    ## 이거 안넣으면 403 뜸
-        #      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Whale/3.19.166.16 Safari/537.36',
-        #     #  'User-Agent': 'Chrome/110.0.0.0',
-        #     #  'User-Agent': 'Whale/3.19.166.16',
-        #     #  'User-Agent': 'PostmanRuntime/7.30.1',
-        #     #  'User-Agent': 'Edg/110.0.1587.41',
-        #     # 'User-Agent' : get_user_agent(),
-        #     'sec-ch-ua': '"Whale";v="3", "Not-A.Brand";v="8", "Chromium";v="110"',
-        #     'sec-ch-ua-mobile': '?0',
-        #     'sec-ch-ua-platform': '"Windows"',
-        #     'sec-fetch-dest': 'document',
-        #     'sec-fetch-mode': 'navigate',
-        #     'sec-fetch-site': 'same-origin',
-        #     'sec-fetch-user': '?1',
-        #     'upgrade-insecure-requests': '1',
-        #     # 'Cookie': '__cf_bm=l53SqH28OmKuqJID416v7yJELRnale0hKrqxJOKHWJw-1676295258-0-AdYc6fA8mU8njgz2dyii6tBoH5xiCbyMmp1pp8szts5PIQQ14sH2dJ/9VUD7+DLrP3rUGgc5TACtoVOyKV70E7g=; language_code=en; stockx_device_id=b5bf17d1-f317-40ac-abf3-172da3629943; stockx_selected_region=KR; stockx_session=2079917c-0b4b-475a-b3a1-d1f01fe36d3d'
-        # }
-
-        ### Edge ###
-        # headers = {
-        #     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-        #     'Accept-Encoding': 'gzip, deflate, br',
-        #     'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-        #     'Cache-Control': 'max-age=0',
-        #     # 'Host' : 'https://stockx.com/',
-        #     # 'Referer': 'https://stockx.com/ko-kr/sneakers',
-        #      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.41',    ## 이거 안넣으면 403 뜸
-        #     #  'User-Agent': 'PostmanRuntime/7.30.1',
-        #     # 'User-Agent' : get_user_agent(),
-        #     'sec-ch-ua': '"Chromium";v="110", "Not A(Brand";v="24", "Microsoft Edge";v="110"',
-        #     'sec-ch-ua-mobile': '?0',
-        #     'sec-ch-ua-platform': '"Windows"',
-        #     'sec-fetch-dest': 'document',
-        #     'sec-fetch-mode': 'navigate',
-        #     'sec-fetch-site': 'same-origin',
-        #     'sec-fetch-user': '?1',
-        #     'upgrade-insecure-requests': '1',
-        #     # 'Cookie': '__cf_bm=l53SqH28OmKuqJID416v7yJELRnale0hKrqxJOKHWJw-1676295258-0-AdYc6fA8mU8njgz2dyii6tBoH5xiCbyMmp1pp8szts5PIQQ14sH2dJ/9VUD7+DLrP3rUGgc5TACtoVOyKV70E7g=; language_code=en; stockx_device_id=b5bf17d1-f317-40ac-abf3-172da3629943; stockx_selected_region=KR; stockx_session=2079917c-0b4b-475a-b3a1-d1f01fe36d3d'
-        # }
-
-        ### Postman ###
-        # headers = {
-        #     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-        #     'Accept-Encoding': 'gzip, deflate, br',
-        #     'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-        #     'Cache-Control': 'max-age=0',
-        #     # 'Host' : 'https://stockx.com/',
-        #     # 'Referer': 'https://stockx.com/ko-kr/sneakers',
-        #     #  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.1587.41',    ## 이거 안넣으면 403 뜸
-        #      'User-Agent': 'PostmanRuntime/7.30.1',
-        #     # 'User-Agent' : get_user_agent(),
-        #     # 'sec-ch-ua': '"Chromium";v="110", "Not A(Brand";v="24", "Microsoft Edge";v="110"',
-        #     'sec-ch-ua-mobile': '?0',
-        #     'sec-ch-ua-platform': '"Windows"',
-        #     'sec-fetch-dest': 'document',
-        #     'sec-fetch-mode': 'navigate',
-        #     'sec-fetch-site': 'same-origin',
-        #     'sec-fetch-user': '?1',
-        #     'upgrade-insecure-requests': '1',
-        #     # 'Cookie': '__cf_bm=l53SqH28OmKuqJID416v7yJELRnale0hKrqxJOKHWJw-1676295258-0-AdYc6fA8mU8njgz2dyii6tBoH5xiCbyMmp1pp8szts5PIQQ14sH2dJ/9VUD7+DLrP3rUGgc5TACtoVOyKV70E7g=; language_code=en; stockx_device_id=b5bf17d1-f317-40ac-abf3-172da3629943; stockx_selected_region=KR; stockx_session=2079917c-0b4b-475a-b3a1-d1f01fe36d3d'
-        # }
-
-
-        
-        # headers = {
-        #     'Cookie': '__cf_bm=l53SqH28OmKuqJID416v7yJELRnale0hKrqxJOKHWJw-1676295258-0-AdYc6fA8mU8njgz2dyii6tBoH5xiCbyMmp1pp8szts5PIQQ14sH2dJ/9VUD7+DLrP3rUGgc5TACtoVOyKV70E7g=; language_code=en; stockx_device_id=b5bf17d1-f317-40ac-abf3-172da3629943; stockx_selected_region=KR; stockx_session=2079917c-0b4b-475a-b3a1-d1f01fe36d3d'
-        # }
-        # payload = {}
-        # response = requests.get(url, headers=headers)
-        # response = requests.request("GET", url)
-        # response = requests.request("GET", url, headers=headers, data=payload)
-
-        # proxies = set_proxies()
-        # response = requests.request("GET", url, headers=headers, proxies=proxies)
-
-        response = requests.request("GET", url, headers=headers)
-
-        return response
-    def _parse_model_no(self,response):
-        html_text = response.text
-
-        try:
-            title = self._parse_title(html_text)
-            twittertitle = self._parse_twittertitle(html_text)
-
-            str = title.replace(twittertitle, '')
-
-            indexes = [index for index, char in enumerate(str) if char=='-']
-            model_no = str[indexes[0]+1:indexes[-1]].strip()
-            return model_no
-        
-        except Exception as err:
-            print("[StockXManager] : Error(%s) at '_parse_model_no' with [미정...]) "%(err))
-            return ''
-    def _parse_title(self, html_text):
-        ## tag 로 substring 찾자.
-        idx1_1 = html_text.find('<title')
-        idx1_2 = html_text.find('</title>')
-        str1 = html_text[idx1_1:idx1_2+len('</title>')]
-        
-        ## tag지우고, text만 뽑자.
-        idx2_1 = str1.find('>')
-        idx2_2 = str1.find('</title>')
-        str2 = str1[idx2_1+len('>'):idx2_2]
-        
-        return str2
-    def _parse_twittertitle(self, html_text):
-        substr1 = '<meta data-rh="true" property="twitter:title" content='
-        idx1 = html_text.find(substr1)
-        str1 = html_text[idx1+len(substr1):]
-
-        substr2 = '/>'
-        idx2 = str1.find(substr2)
-        str2 = str1[:idx2]
-
-        indexes = [index for index, char in enumerate(str2) if char=='"']
-        str3 = str2[indexes[0]+1:indexes[1]].strip()
-
-        return str3
-    def _query_update_model_no(self, model_no, urlkey):
-        try:
-            query = "UPDATE stockx SET model_no=%s WHERE urlkey=%s"
-            self.cursor.execute(query, (model_no, urlkey))
-
-            self.con.commit()
-        except Exception as e:
-            print(model_no, urlkey)
-            print(e)
-
-    ##### 기능 3 관련 함수 #############################################################################################################################################################################
-    """ 
-    ## 옛날 버전 (~23.02.03)
+    ### Lv2) 사이즈 Request ###
+    # input : urlkey
+    # output : response
     def _post_size(self, urlkey):
         url = "https://stockx.com/api/p/e"
         headers = {
             # 'Accept': '*/*',
             # 'Accept-Encoding': 'gzip, deflate, br',
-            'Accept-language': 'ko-KR',   ## 이거 안넣으면 404
-            'apollographql-client-name': 'Iron',    ## 필수
-            'Content-Type': 'application/json',
-            # 'origin': 'https://stockx.com',
-            'Referer': 'https://stockx.com/ko-kr/'+urlkey,
-            'selected-country': 'KR',
-            # 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',    ## 이거 안넣으면 403 뜸
-            'User-Agent' : get_user_agent(),
-            # 'Authorization' : 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5USkNNVVEyUmpBd1JUQXdORFk0TURRelF6SkZRelV4TWpneU5qSTNNRFJGTkRZME0wSTNSQSJ9.eyJodHRwczovL3N0b2NreC5jb20vY3VzdG9tZXJfdXVpZCI6ImJmOGQzMDIzLTljNGItMTFlZC05ZjBjLTEyNDczOGI1MGUxMiIsImh0dHBzOi8vc3RvY2t4LmNvbS9nYV9ldmVudCI6IkxvZ2dlZCBJbiIsImlzcyI6Imh0dHBzOi8vYWNjb3VudHMuc3RvY2t4LmNvbS8iLCJzdWIiOiJhdXRoMHw2M2QwN2Y1MTc4ZDEwYmU5ZGYzNTk4YWQiLCJhdWQiOlsiZ2F0ZXdheS5zdG9ja3guY29tIiwiaHR0cHM6Ly9zdG9ja3gtcHJvZC5hdXRoMC5jb20vdXNlcmluZm8iXSwiaWF0IjoxNjc1NDA0NjQ2LCJleHAiOjE2NzU0NDc4NDYsImF6cCI6Ik9WeHJ0NFZKcVR4N0xJVUtkNjYxVzBEdVZNcGNGQnlEIiwic2NvcGUiOiJvcGVuaWQgcHJvZmlsZSJ9.PheLqoED2YCgg2vYLTyq6TRkLiECRRyc8EduIf74EF5sbSeuhJevuKP11IQVj2a2lSDcTtz3L6aYRwqWbIoqziqIeOk1dbJrXDemrebBk1IalJ9XPr3wvM2UdFNdMwpIPd9HlpNdpCxm21cbu9sYq1V4-uUDgXEc5qRdnt1GFZL0WmaGcewyFxGkIxW6PM8LZvOzt7pMO0lJKHJr0H8Pba6GNCTRXjUdv2-5u1wD9Uh2Ce_VBvA-w3fG22qViwE37PCSpyfxcx_W5U4KWdg33I8oMqJnKo_22G_38WbyEwcIPux_S8QFU0dIn8Del9zlkRIDRld1kGsvODO2XtVSjQ',
-            # 'sec-ch-ua-mobile' : '?0',
-            # 'sec-ch-ua-platform' : '"Windows"',
-            # 'sec-fetch-dest' : 'empty',
-            # 'sec-fetch-mode': 'cors',
-            # 'sec-fetch-site': 'same-origin',
-            'x-operation-name': 'GetMarketData', ##  
-            'x-stockx-device-id': '052ebc20-b6ba-48e5-b3a9-d94b8a64df2a', ## 
-            # 'X-Remote-IP': '10.10.10.10,'
-        }
-        body = {
-            "query": "query GetMarketData($id: String!, $currencyCode: CurrencyCode, $countryCode: String!, $marketName: String) {\n  product(id: $id) {\n    id\n    urlKey\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n    variants {\n      id\n      market(currencyCode: $currencyCode) {\n        bidAskData(country: $countryCode, market: $marketName) {\n          highestBid\n          highestBidSize\n          lowestAsk\n          lowestAskSize\n        }\n      }\n    }\n    ...BidButtonFragment\n    ...BidButtonContentFragment\n    ...BuySellFragment\n    ...BuySellContentFragment\n    ...XpressAskPDPFragment\n  }\n}\n\nfragment BidButtonFragment on Product {\n  id\n  title\n  urlKey\n  sizeDescriptor\n  productCategory\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n    }\n  }\n  media {\n    imageUrl\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n  }\n}\n\nfragment BidButtonContentFragment on Product {\n  id\n  urlKey\n  sizeDescriptor\n  productCategory\n  lockBuying\n  lockSelling\n  minimumBid(currencyCode: $currencyCode)\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n      numberOfAsks\n    }\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n        numberOfAsks\n      }\n    }\n  }\n}\n\nfragment BuySellFragment on Product {\n  id\n  title\n  urlKey\n  sizeDescriptor\n  productCategory\n  lockBuying\n  lockSelling\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n    }\n  }\n  media {\n    imageUrl\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n  }\n}\n\nfragment BuySellContentFragment on Product {\n  id\n  urlKey\n  sizeDescriptor\n  productCategory\n  lockBuying\n  lockSelling\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n    }\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n  }\n}\n\nfragment XpressAskPDPFragment on Product {\n  market(currencyCode: $currencyCode) {\n    state(country: $countryCode) {\n      numberOfCustodialAsks\n    }\n  }\n  variants {\n    market(currencyCode: $currencyCode) {\n      state(country: $countryCode) {\n        numberOfCustodialAsks\n      }\n    }\n  }\n}\n",
-            "variables": {
-                "id": urlkey,
-                "currencyCode": "KRW",
-                "countryCode": "KR",
-                "marketName": None
-            },
-            "operationName": "GetMarketData"
-        }
-        data = json.dumps(body)
-        response = requests.post(url, headers=headers, data=data)
-        # proxies = set_proxies()
-        # response = requests.post(url, headers=headers, data=data, proxies=proxies, timeout=3)
-        return response
-     """
-
-    ## 지금 버전 (23.02.03~)
-    def _post_size(self, urlkey):
-        url = "https://stockx.com/api/p/e"
-        headers = {
-            'Accept': '*/*',
-            'Accept-Encoding': 'gzip, deflate, br',
             'Accept-Language': 'ko-KR',
             'apollographql-client-name': 'Iron',
             'apollographql-client-version': '2023.01.29.00',
@@ -628,6 +344,10 @@ class StockXManager:
         # proxies = set_proxies()
         # response = requests.post(url, headers=headers, data=data, proxies=proxies, timeout=3)
         return response
+    
+    ### Lv2) 상품 정보 Parsing ###
+    # input : response
+    # output : state, list[dict{'id_stockx','size','price_buy','price_sell'}]
     def _parse_size(self, response):
         output_productlist = []
 
@@ -636,25 +356,65 @@ class StockXManager:
         for item in data['data']['product']['variants']:
             product = {}
             product['id_stockx'] = item['id']
-            product['price_buy'] = item['market']['bidAskData']['lowestAsk']
-            product['price_sell'] = item['market']['bidAskData']['highestBid']
+            product['price_buy_stockx'] = item['market']['bidAskData']['lowestAsk']
+            product['price_sell_stockx'] = item['market']['bidAskData']['highestBid']
 
             if(item['market']['bidAskData']['highestBidSize'] == None):
-                product['size'] = item['market']['bidAskData']['lowestAskSize']
+                product['size_stockx'] = item['market']['bidAskData']['lowestAskSize']
             else:
-                product['size'] = item['market']['bidAskData']['highestBidSize']
+                product['size_stockx'] = item['market']['bidAskData']['highestBidSize']
             
-            if(product['price_buy'] == None):
-                product['price_buy'] = 0
-            if(product['price_sell'] == None):
-                product['price_sell'] = 0
+            if(product['price_buy_stockx'] == None):
+                product['price_buy_stockx'] = 0
+            if(product['price_sell_stockx'] == None):
+                product['price_sell_stockx'] = 0
 
             output_productlist.append(product)
             del product
 
         return output_productlist
 
-    ##### 기능 4 관련 함수 #############################################################################################################################################################################
+
+
+    
+        
+
+
+
+
+
+    #######################################################################################################################################
+    #######################################################################################################################################
+    ### 기타 2. SneakersManager 요청 사항 - 가격 정보 요청
+    #######################################################################################################################################
+    #######################################################################################################################################
+    
+    ### Lv1) 카테고리 별 상품 스크랩 ###
+    # input : urlkey
+    # output : state, list[dict{'size_stockx','price_buy_stockx','price_sell_stockx'}]
+    def scrap_price(self, urlkey):
+        data = []
+        sleep_random(self.delay_min, self.delay_max)
+        response = self._post_price(urlkey)
+        if(response.status_code == 200):
+            data = self._parse_price(response=response)
+            state = True
+        elif(response.status_code != 401):
+            print("[StockXManager] : Error Code(%s) at 'scrap_price' with [urlkey=%s]) "%(response.status_code, urlkey))
+            state = False
+        elif(response.status_code != 403):
+            print("[StockXManager] : Error Code(%s) at 'scrap_price' with [urlkey=%s]) "%(response.status_code, urlkey))
+            state = False
+        else:
+            print("[StockXManager] : Error Code(%s) at 'scrap_price' with [urlkey=%s]) "%(response.status_code, urlkey))
+            state = False
+
+        return state, data
+
+
+    ### Lv2) 가격 Request ###
+    # input : urlkey
+    # output : response
     def _post_price(self, urlkey):
         url = "https://stockx.com/api/p/e"
         headers = {
@@ -662,9 +422,9 @@ class StockXManager:
             'Accept-Encoding': 'gzip, deflate, br',
             'Accept-Language': 'ko-KR',
             'apollographql-client-name': 'Iron',
-            'apollographql-client-version': '2023.01.29.00',
+            'apollographql-client-version': '2023.02.12.02',
             'app-platform': 'Iron',
-            'app-version': '2023.01.29.00',
+            'app-version': '2023.02.12.02',
             'Origin': 'https://stockx.com',
             'Referer': 'https://stockx.com/ko-kr/'+urlkey,
             'sec-ch-ua': '"Not_A Brand";v="99", "Google Chrome";v="109", "Chromium";v="109"',
@@ -679,8 +439,8 @@ class StockXManager:
             'x-stockx-device-id': '052ebc20-b6ba-48e5-b3a9-d94b8a64df2a',
             'Authorization': self.auth_token,
             'Content-Type': 'application/json',
-            'Cookie': 'stockx_selected_currency=USD;',
-            # 'User-Agent': get_user_agent(),
+            # 'Cookie': 'stockx_device_id=052ebc20-b6ba-48e5-b3a9-d94b8a64df2a; _pxvid=c4e2bbe4-9976-11ed-aab3-575552764d57; _ga=GA1.2.569109511.1674297091; ajs_anonymous_id=6593169f-2cec-4748-8a84-ab935ea5f813; __pxvid=c514f26d-9976-11ed-b321-0242ac120002; _gcl_au=1.1.1570150577.1674297091; rbuid=rbos-dc1e4acd-a291-490d-8242-4de37a93dd1c; __ssid=ac2c621ce974a5208576220bbae4656; rskxRunCookie=0; rCookie=03bentcw3fenxkvyo8zwuwld5t9dhl; QuantumMetricUserID=1c8a556b683048d6ddc5c111fbd718ef; _rdt_uuid=1674297095164.6a485bc7-e5a6-4d1a-8558-b7530720ed13; __pdst=40f158377cfa4d989f101edd0779df41; _ga=GA1.2.569109511.1674297091; _pin_unauth=dWlkPVl6QTFaREptTkRVdE9EYzJOeTAwTkRjeExUaGpaVFF0TkRBeFpEWmxOVGhpTURCbA; stockx_dismiss_modal=true; stockx_dismiss_modal_set=2023-01-24T11%3A38%3A45.532Z; stockx_dismiss_modal_expiration=2024-01-24T11%3A38%3A45.531Z; OptanonAlertBoxClosed=2023-01-24T11:38:50.156Z; tracker_device=10696ba6-010f-4b51-ae75-4a2982e6baf8; stockx_seen_ask_new_info=true; ajs_user_id=bf8d3023-9c4b-11ed-9f0c-124738b50e12; mfaLogin=err; language_code=ko; ajs_user_id=bf8d3023-9c4b-11ed-9f0c-124738b50e12; ajs_anonymous_id=6593169f-2cec-4748-8a84-ab935ea5f813; stockx_homepage=sneakers; token=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5USkNNVVEyUmpBd1JUQXdORFk0TURRelF6SkZRelV4TWpneU5qSTNNRFJGTkRZME0wSTNSQSJ9.eyJodHRwczovL3N0b2NreC5jb20vY3VzdG9tZXJfdXVpZCI6ImJmOGQzMDIzLTljNGItMTFlZC05ZjBjLTEyNDczOGI1MGUxMiIsImh0dHBzOi8vc3RvY2t4LmNvbS9nYV9ldmVudCI6IkxvZ2dlZCBJbiIsImh0dHBzOi8vc3RvY2t4LmNvbS9lbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaXNzIjoiaHR0cHM6Ly9hY2NvdW50cy5zdG9ja3guY29tLyIsInN1YiI6ImF1dGgwfDYzZDA3ZjUxNzhkMTBiZTlkZjM1OThhZCIsImF1ZCI6ImdhdGV3YXkuc3RvY2t4LmNvbSIsImlhdCI6MTY3NzI0ODQ5MywiZXhwIjoxNjc3MjkxNjkzLCJhenAiOiJPVnhydDRWSnFUeDdMSVVLZDY2MVcwRHVWTXBjRkJ5RCIsInNjb3BlIjoib2ZmbGluZV9hY2Nlc3MifQ.QRfvemvNitQh3bGdSpr7uXw_91uvXnjXxBrbl3p7GdyJnWaY4heyYU7C3MUmGZBMS5KJWO8lqUmS33waFsbCYAKc4k2nT17vaQa_MTIn_--V6WK4B57enOvDxJfeSy8TizfoPa4E4xQ5oIvW_BiTGE7jpIUnA07mp5BcCCItUapiRpJeR3mGytQUCOZDjbmRQMAmXf-__c19V_FSYbz_y_aX0_aMMAwFzyN-njYQfCHlJ_7bOucAVxy725jYK0dS_SPYwOT9cUT1H0pnOu5eatlzsSrlx9xjBnPdow-2OcSkcI22lA1p4L0Va2C3f_iaGxGJwf3-izaZ7EXI-EInXg; _gid=GA1.2.1218620974.1677248496; IR_PI=c7c35067-9976-11ed-b9f8-25af62750bf1%7C1677334902116; stockx_session=174d5550-0177-4286-bb83-d61a839e3467; __cf_bm=PxuwS3fXbM0oagMrDSPcvEaJbJvyvFVA5AwdmdA0.FQ-1677288797-0-AQ+WKZX4emFjSOtZ8LgRv/oyMhFkN7ZKx9hIZJyM6fR5d8wkVeZ7FVs9I6e272frNHthX9N1UGx0JpURwevhQwI=; stockx_selected_region=KR; _pxff_cc=U2FtZVNpdGU9TGF4Ow==; pxcts=61e89360-b4ac-11ed-8d8b-5250544a696d; _pxff_idp_c=1,s; _pxff_fed=5000; OptanonConsent=isGpcEnabled=0&datestamp=Sat+Feb+25+2023+10%3A33%3A19+GMT%2B0900+(%ED%95%9C%EA%B5%AD+%ED%91%9C%EC%A4%80%EC%8B%9C)&version=202211.2.0&geolocation=KR%3B11&isIABGlobal=false&hosts=&consentId=68357594-217d-4425-9343-9c5309623e84&interactionCount=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0004%3A1%2CC0005%3A1%2CC0003%3A1&AwaitingReconsent=false; loggedIn=bf8d3023-9c4b-11ed-9f0c-124738b50e12; stockx_selected_currency=USD; _gat=1; _px3=5fce791844a99c39d44c87d854dea093d4029f514250a89e79397d2828559c52:sxZmMRnEOkjZtw3mK7N2AXVP2vCiZB0qRGmO7FkPQ3ar2OcZTYZ3AbQpYIqG7MwZALw9vtURc0B1vMl54PogmA==:1000:mSQcrIyJfPjCuo7y3JiB5U3xVsih7Q0ur0khKA0VLvgshjxCsLPdrsZw/tkXzjvnwli3mnUFVoXvNLrbAQ6kREu/vqjFjHZDhenWVOjUjohRe7CVWvo5YsU1DuvQvTuiNLyewuXITN1Rti9VYKm8/fGXEF9fpJEX1N6wRHbZFp6Y8xHzSs6495gWxzb2+R0tltISyzzEUtMrrlCP30RRWA==; forterToken=4880e3a1bc124c478eaa6ecf50b63162_1677288799808__UDF43_13ck; ftr_blst_1h=1677288800023; _pxde=a0ed2f3bc05c2cfcd4ad324895cba0dd8e633276036f2144c5f4165713ed8737:eyJ0aW1lc3RhbXAiOjE2NzcyODg4MDEzNjEsImZfa2IiOjB9; lastRskxRun=1677288803003; _uetsid=8bce61e0b44e11edb4b0cd03196d701d; _uetvid=b24a09e09c4d11edae7967fe428be46d; _dd_s=rum=0&expire=1677289703793',
+            'Cookie' : 'stockx_device_id=052ebc20-b6ba-48e5-b3a9-d94b8a64df2a; _pxvid=c4e2bbe4-9976-11ed-aab3-575552764d57; _ga=GA1.2.569109511.1674297091; ajs_anonymous_id=6593169f-2cec-4748-8a84-ab935ea5f813; __pxvid=c514f26d-9976-11ed-b321-0242ac120002; _gcl_au=1.1.1570150577.1674297091; rbuid=rbos-dc1e4acd-a291-490d-8242-4de37a93dd1c; __ssid=ac2c621ce974a5208576220bbae4656; rskxRunCookie=0; rCookie=03bentcw3fenxkvyo8zwuwld5t9dhl; QuantumMetricUserID=1c8a556b683048d6ddc5c111fbd718ef; _rdt_uuid=1674297095164.6a485bc7-e5a6-4d1a-8558-b7530720ed13; __pdst=40f158377cfa4d989f101edd0779df41; _ga=GA1.2.569109511.1674297091; _pin_unauth=dWlkPVl6QTFaREptTkRVdE9EYzJOeTAwTkRjeExUaGpaVFF0TkRBeFpEWmxOVGhpTURCbA; stockx_dismiss_modal=true; stockx_dismiss_modal_set=2023-01-24T11%3A38%3A45.532Z; stockx_dismiss_modal_expiration=2024-01-24T11%3A38%3A45.531Z; OptanonAlertBoxClosed=2023-01-24T11:38:50.156Z; tracker_device=10696ba6-010f-4b51-ae75-4a2982e6baf8; stockx_seen_ask_new_info=true; ajs_user_id=bf8d3023-9c4b-11ed-9f0c-124738b50e12; mfaLogin=err; language_code=ko; ajs_user_id=bf8d3023-9c4b-11ed-9f0c-124738b50e12; ajs_anonymous_id=6593169f-2cec-4748-8a84-ab935ea5f813; stockx_homepage=sneakers; _gid=GA1.2.1218620974.1677248496; stockx_selected_region=KR; pxcts=61e89360-b4ac-11ed-8d8b-5250544a696d; loggedIn=bf8d3023-9c4b-11ed-9f0c-124738b50e12; stockx_selected_currency=USD; stockx_preferred_market_activity=sales; IR_gbd=stockx.com; QuantumMetricSessionID=05bfd3c48dd92228fe5d17be6168a58c; token=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5USkNNVVEyUmpBd1JUQXdORFk0TURRelF6SkZRelV4TWpneU5qSTNNRFJGTkRZME0wSTNSQSJ9.eyJodHRwczovL3N0b2NreC5jb20vY3VzdG9tZXJfdXVpZCI6ImJmOGQzMDIzLTljNGItMTFlZC05ZjBjLTEyNDczOGI1MGUxMiIsImh0dHBzOi8vc3RvY2t4LmNvbS9nYV9ldmVudCI6IkxvZ2dlZCBJbiIsImh0dHBzOi8vc3RvY2t4LmNvbS9lbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaXNzIjoiaHR0cHM6Ly9hY2NvdW50cy5zdG9ja3guY29tLyIsInN1YiI6ImF1dGgwfDYzZDA3ZjUxNzhkMTBiZTlkZjM1OThhZCIsImF1ZCI6ImdhdGV3YXkuc3RvY2t4LmNvbSIsImlhdCI6MTY3NzI5MjI2MiwiZXhwIjoxNjc3MzM1NDYyLCJhenAiOiJPVnhydDRWSnFUeDdMSVVLZDY2MVcwRHVWTXBjRkJ5RCIsInNjb3BlIjoib2ZmbGluZV9hY2Nlc3MifQ.WDP4J50jexco82770I6RFgEbGvxCiY2JJT1J8-LAJP7wmRf24KWUg7lARVUgE07RR_S-ZQ_xJXSNQkpLynFb8FjV4oNVRw-cQmuqN95ypOfPk8WPzByTNPlKJQLxBcVuRyyZik5dHcKInKVtTmTnnlZW7I_bwuvlwOdR9MdfbYYfxVOYZpSJiHUHG--laFZXYhgnJOmovfvKTX1VkIpUEslr9AZj1-kdhlkRnfHkI0R-gVRCqTcB4nsnhyPrYTdPS5DnWCBymqFXe41Q3nXlkTTKc8Di_zeKssQLgVJ5V6zi1vyO-Hg7WgKo-NkyATxOVSL5fqKpyVzVYDrCcX5y5w; lastRskxRun=1677292267419; IR_9060=1677292268994%7C0%7C1677292268994%7C%7C; IR_PI=c7c35067-9976-11ed-b9f8-25af62750bf1%7C1677378668994; forterToken=4880e3a1bc124c478eaa6ecf50b63162_1677292264975__UDF43-m4_13ck; _uetsid=8bce61e0b44e11edb4b0cd03196d701d; _uetvid=b24a09e09c4d11edae7967fe428be46d; __cf_bm=KtVKLGxsFcOwQvDEfPXRToQGnlJeD9eT7mSUaeqbUtA-1677293117-0-ASPQfOBkeBe++N2ua6wKk4f0Pia+10zpje28MeHhWy3ahzmV5O/8aB2wmi7B+YHEIlzfwZKjFlVTUvS3yqBH6XE=; _pxff_cc=U2FtZVNpdGU9TGF4Ow==; _pxff_idp_c=1,s; _pxff_rf=1; _pxff_fp=1; _pxff_fed=5000; _px3=59bbb2f22ec416dc98e871d3e1ffe643190b8c72c633789bdb211101a1619377:I/NigmEwqpke5Yipman850M21brteWTHIUGQdRf978SuwHP7UyglJFUevehxMRxPcIN5755/a1fb0oSFF8bmFA==:1000:XKwdWWBSF7ZWT6KH8rEdQzQBy9tEMCBt0R3flIKUbvuPiDiaxnlq1o+u5WZil/MdFhnC2Y4bDRd/N/e83QScy/fkT2lgRUgd42/s8oPhFGGx/SKI2q92hsL3Zx2QW2ta/U/dnqLceSPCsoxMgN4zktb1+QsaU7bL/Vlm3auto6q4KeDTWpeIVMImxa/c0JQTNbOX2ZFfSUeMiK0tuYR8/g==; stockx_session=0c809763-a060-449f-9a73-b80cd0b757a3; OptanonConsent=isGpcEnabled=0&datestamp=Sat+Feb+25+2023+11%3A54%3A09+GMT%2B0900+(%ED%95%9C%EA%B5%AD+%ED%91%9C%EC%A4%80%EC%8B%9C)&version=202211.2.0&geolocation=KR%3B11&isIABGlobal=false&hosts=&consentId=68357594-217d-4425-9343-9c5309623e84&interactionCount=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0004%3A1%2CC0005%3A1%2CC0003%3A1&AwaitingReconsent=false; _pxde=e92cfca1fc6abd67a6e7d7f9e1996a0f19e61d1de46dd67f07bf2bb3ef0ac9a9:eyJ0aW1lc3RhbXAiOjE2NzcyOTM2NDk0MDcsImZfa2IiOjB9; _dd_s=rum=0&expire=1677294550167; stockx_product_visits=3; _gat=1'
         }
         payload = json.dumps({
             "query": "query GetMarketData($id: String!, $currencyCode: CurrencyCode, $countryCode: String!, $marketName: String) {\n  product(id: $id) {\n    id\n    urlKey\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n    variants {\n      id\n      market(currencyCode: $currencyCode) {\n        bidAskData(country: $countryCode, market: $marketName) {\n          highestBid\n          highestBidSize\n          lowestAsk\n          lowestAskSize\n        }\n      }\n    }\n    ...BidButtonFragment\n    ...BidButtonContentFragment\n    ...BuySellFragment\n    ...BuySellContentFragment\n    ...XpressAskPDPFragment\n  }\n}\n\nfragment BidButtonFragment on Product {\n  id\n  title\n  urlKey\n  sizeDescriptor\n  productCategory\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n    }\n  }\n  media {\n    imageUrl\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n  }\n}\n\nfragment BidButtonContentFragment on Product {\n  id\n  urlKey\n  sizeDescriptor\n  productCategory\n  lockBuying\n  lockSelling\n  minimumBid(currencyCode: $currencyCode)\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n      numberOfAsks\n    }\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n        numberOfAsks\n      }\n    }\n  }\n}\n\nfragment BuySellFragment on Product {\n  id\n  title\n  urlKey\n  sizeDescriptor\n  productCategory\n  lockBuying\n  lockSelling\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n    }\n  }\n  media {\n    imageUrl\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n  }\n}\n\nfragment BuySellContentFragment on Product {\n  id\n  urlKey\n  sizeDescriptor\n  productCategory\n  lockBuying\n  lockSelling\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n    }\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n  }\n}\n\nfragment XpressAskPDPFragment on Product {\n  market(currencyCode: $currencyCode) {\n    state(country: $countryCode) {\n      numberOfCustodialAsks\n    }\n  }\n  variants {\n    market(currencyCode: $currencyCode) {\n      state(country: $countryCode) {\n        numberOfCustodialAsks\n      }\n    }\n  }\n}\n",
@@ -692,11 +452,51 @@ class StockXManager:
             },
             "operationName": "GetMarketData"
         })
+
+        # headers = {
+        #     'Accept-Language': 'ko-KR',
+        #     'apollographql-client-name': 'Iron',
+        #     'apollographql-client-version': '2023.02.12.02',
+        #     'app-platform': 'Iron',
+        #     'app-version': '2023.02.12.02',
+        #     'Origin': 'https://stockx.com',
+        #     'Referer': 'https://stockx.com/ko-kr/adidas-gazelle-bold-pink-glow-w',
+        #     'selected-country': 'KR',
+        #     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+        #     'x-operation-name': 'GetMarketData',
+        #     'x-stockx-device-id': '052ebc20-b6ba-48e5-b3a9-d94b8a64df2a',
+        #     'sec-ch-ua': '"Not_A Brand";v="99", "Google Chrome";v="109", "Chromium";v="109"',
+        #     'sec-ch-ua-mobile': '?0',
+        #     'sec-ch-ua-platform': '"Windows"',
+        #     'sec-fetch-dest': 'empty',
+        #     'sec-fetch-mode': 'cors',
+        #     'sec-fetch-site': 'same-origin',
+        #     'Authorization': 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5USkNNVVEyUmpBd1JUQXdORFk0TURRelF6SkZRelV4TWpneU5qSTNNRFJGTkRZME0wSTNSQSJ9.eyJodHRwczovL3N0b2NreC5jb20vY3VzdG9tZXJfdXVpZCI6ImJmOGQzMDIzLTljNGItMTFlZC05ZjBjLTEyNDczOGI1MGUxMiIsImh0dHBzOi8vc3RvY2t4LmNvbS9nYV9ldmVudCI6IkxvZ2dlZCBJbiIsImh0dHBzOi8vc3RvY2t4LmNvbS9lbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaXNzIjoiaHR0cHM6Ly9hY2NvdW50cy5zdG9ja3guY29tLyIsInN1YiI6ImF1dGgwfDYzZDA3ZjUxNzhkMTBiZTlkZjM1OThhZCIsImF1ZCI6ImdhdGV3YXkuc3RvY2t4LmNvbSIsImlhdCI6MTY3NzI0ODQ5MywiZXhwIjoxNjc3MjkxNjkzLCJhenAiOiJPVnhydDRWSnFUeDdMSVVLZDY2MVcwRHVWTXBjRkJ5RCIsInNjb3BlIjoib2ZmbGluZV9hY2Nlc3MifQ.QRfvemvNitQh3bGdSpr7uXw_91uvXnjXxBrbl3p7GdyJnWaY4heyYU7C3MUmGZBMS5KJWO8lqUmS33waFsbCYAKc4k2nT17vaQa_MTIn_--V6WK4B57enOvDxJfeSy8TizfoPa4E4xQ5oIvW_BiTGE7jpIUnA07mp5BcCCItUapiRpJeR3mGytQUCOZDjbmRQMAmXf-__c19V_FSYbz_y_aX0_aMMAwFzyN-njYQfCHlJ_7bOucAVxy725jYK0dS_SPYwOT9cUT1H0pnOu5eatlzsSrlx9xjBnPdow-2OcSkcI22lA1p4L0Va2C3f_iaGxGJwf3-izaZ7EXI-EInXg',
+        #     'Content-Type': 'application/json',
+        #     'Cookie': 'stockx_device_id=052ebc20-b6ba-48e5-b3a9-d94b8a64df2a; _pxvid=c4e2bbe4-9976-11ed-aab3-575552764d57; _ga=GA1.2.569109511.1674297091; ajs_anonymous_id=6593169f-2cec-4748-8a84-ab935ea5f813; __pxvid=c514f26d-9976-11ed-b321-0242ac120002; _gcl_au=1.1.1570150577.1674297091; rbuid=rbos-dc1e4acd-a291-490d-8242-4de37a93dd1c; __ssid=ac2c621ce974a5208576220bbae4656; rskxRunCookie=0; rCookie=03bentcw3fenxkvyo8zwuwld5t9dhl; QuantumMetricUserID=1c8a556b683048d6ddc5c111fbd718ef; _rdt_uuid=1674297095164.6a485bc7-e5a6-4d1a-8558-b7530720ed13; __pdst=40f158377cfa4d989f101edd0779df41; _ga=GA1.2.569109511.1674297091; _pin_unauth=dWlkPVl6QTFaREptTkRVdE9EYzJOeTAwTkRjeExUaGpaVFF0TkRBeFpEWmxOVGhpTURCbA; stockx_dismiss_modal=true; stockx_dismiss_modal_set=2023-01-24T11%3A38%3A45.532Z; stockx_dismiss_modal_expiration=2024-01-24T11%3A38%3A45.531Z; OptanonAlertBoxClosed=2023-01-24T11:38:50.156Z; tracker_device=10696ba6-010f-4b51-ae75-4a2982e6baf8; stockx_seen_ask_new_info=true; ajs_user_id=bf8d3023-9c4b-11ed-9f0c-124738b50e12; mfaLogin=err; language_code=ko; ajs_user_id=bf8d3023-9c4b-11ed-9f0c-124738b50e12; ajs_anonymous_id=6593169f-2cec-4748-8a84-ab935ea5f813; stockx_homepage=sneakers; token=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5USkNNVVEyUmpBd1JUQXdORFk0TURRelF6SkZRelV4TWpneU5qSTNNRFJGTkRZME0wSTNSQSJ9.eyJodHRwczovL3N0b2NreC5jb20vY3VzdG9tZXJfdXVpZCI6ImJmOGQzMDIzLTljNGItMTFlZC05ZjBjLTEyNDczOGI1MGUxMiIsImh0dHBzOi8vc3RvY2t4LmNvbS9nYV9ldmVudCI6IkxvZ2dlZCBJbiIsImh0dHBzOi8vc3RvY2t4LmNvbS9lbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaXNzIjoiaHR0cHM6Ly9hY2NvdW50cy5zdG9ja3guY29tLyIsInN1YiI6ImF1dGgwfDYzZDA3ZjUxNzhkMTBiZTlkZjM1OThhZCIsImF1ZCI6ImdhdGV3YXkuc3RvY2t4LmNvbSIsImlhdCI6MTY3NzI0ODQ5MywiZXhwIjoxNjc3MjkxNjkzLCJhenAiOiJPVnhydDRWSnFUeDdMSVVLZDY2MVcwRHVWTXBjRkJ5RCIsInNjb3BlIjoib2ZmbGluZV9hY2Nlc3MifQ.QRfvemvNitQh3bGdSpr7uXw_91uvXnjXxBrbl3p7GdyJnWaY4heyYU7C3MUmGZBMS5KJWO8lqUmS33waFsbCYAKc4k2nT17vaQa_MTIn_--V6WK4B57enOvDxJfeSy8TizfoPa4E4xQ5oIvW_BiTGE7jpIUnA07mp5BcCCItUapiRpJeR3mGytQUCOZDjbmRQMAmXf-__c19V_FSYbz_y_aX0_aMMAwFzyN-njYQfCHlJ_7bOucAVxy725jYK0dS_SPYwOT9cUT1H0pnOu5eatlzsSrlx9xjBnPdow-2OcSkcI22lA1p4L0Va2C3f_iaGxGJwf3-izaZ7EXI-EInXg; _gid=GA1.2.1218620974.1677248496; IR_PI=c7c35067-9976-11ed-b9f8-25af62750bf1%7C1677334902116; stockx_session=174d5550-0177-4286-bb83-d61a839e3467; __cf_bm=PxuwS3fXbM0oagMrDSPcvEaJbJvyvFVA5AwdmdA0.FQ-1677288797-0-AQ+WKZX4emFjSOtZ8LgRv/oyMhFkN7ZKx9hIZJyM6fR5d8wkVeZ7FVs9I6e272frNHthX9N1UGx0JpURwevhQwI=; stockx_selected_region=KR; _pxff_cc=U2FtZVNpdGU9TGF4Ow==; pxcts=61e89360-b4ac-11ed-8d8b-5250544a696d; _pxff_idp_c=1,s; _pxff_fed=5000; OptanonConsent=isGpcEnabled=0&datestamp=Sat+Feb+25+2023+10%3A33%3A19+GMT%2B0900+(%ED%95%9C%EA%B5%AD+%ED%91%9C%EC%A4%80%EC%8B%9C)&version=202211.2.0&geolocation=KR%3B11&isIABGlobal=false&hosts=&consentId=68357594-217d-4425-9343-9c5309623e84&interactionCount=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0004%3A1%2CC0005%3A1%2CC0003%3A1&AwaitingReconsent=false; loggedIn=bf8d3023-9c4b-11ed-9f0c-124738b50e12; stockx_selected_currency=USD; _gat=1; _px3=5fce791844a99c39d44c87d854dea093d4029f514250a89e79397d2828559c52:sxZmMRnEOkjZtw3mK7N2AXVP2vCiZB0qRGmO7FkPQ3ar2OcZTYZ3AbQpYIqG7MwZALw9vtURc0B1vMl54PogmA==:1000:mSQcrIyJfPjCuo7y3JiB5U3xVsih7Q0ur0khKA0VLvgshjxCsLPdrsZw/tkXzjvnwli3mnUFVoXvNLrbAQ6kREu/vqjFjHZDhenWVOjUjohRe7CVWvo5YsU1DuvQvTuiNLyewuXITN1Rti9VYKm8/fGXEF9fpJEX1N6wRHbZFp6Y8xHzSs6495gWxzb2+R0tltISyzzEUtMrrlCP30RRWA==; forterToken=4880e3a1bc124c478eaa6ecf50b63162_1677288799808__UDF43_13ck; ftr_blst_1h=1677288800023; _pxde=a0ed2f3bc05c2cfcd4ad324895cba0dd8e633276036f2144c5f4165713ed8737:eyJ0aW1lc3RhbXAiOjE2NzcyODg4MDEzNjEsImZfa2IiOjB9; lastRskxRun=1677288803003; _uetsid=8bce61e0b44e11edb4b0cd03196d701d; _uetvid=b24a09e09c4d11edae7967fe428be46d; _dd_s=rum=0&expire=1677289703793'
+        #     }
+        # payload = json.dumps({
+        #     "query": "query GetMarketData($id: String!, $currencyCode: CurrencyCode, $countryCode: String!, $marketName: String) {\n  product(id: $id) {\n    id\n    urlKey\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n    variants {\n      id\n      market(currencyCode: $currencyCode) {\n        bidAskData(country: $countryCode, market: $marketName) {\n          highestBid\n          highestBidSize\n          lowestAsk\n          lowestAskSize\n        }\n      }\n    }\n    ...BidButtonFragment\n    ...BidButtonContentFragment\n    ...BuySellFragment\n    ...BuySellContentFragment\n    ...XpressAskPDPFragment\n  }\n}\n\nfragment BidButtonFragment on Product {\n  id\n  title\n  urlKey\n  sizeDescriptor\n  productCategory\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n    }\n  }\n  media {\n    imageUrl\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n  }\n}\n\nfragment BidButtonContentFragment on Product {\n  id\n  urlKey\n  sizeDescriptor\n  productCategory\n  lockBuying\n  lockSelling\n  minimumBid(currencyCode: $currencyCode)\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n      numberOfAsks\n    }\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n        numberOfAsks\n      }\n    }\n  }\n}\n\nfragment BuySellFragment on Product {\n  id\n  title\n  urlKey\n  sizeDescriptor\n  productCategory\n  lockBuying\n  lockSelling\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n    }\n  }\n  media {\n    imageUrl\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n  }\n}\n\nfragment BuySellContentFragment on Product {\n  id\n  urlKey\n  sizeDescriptor\n  productCategory\n  lockBuying\n  lockSelling\n  market(currencyCode: $currencyCode) {\n    bidAskData(country: $countryCode, market: $marketName) {\n      highestBid\n      highestBidSize\n      lowestAsk\n      lowestAskSize\n    }\n  }\n  variants {\n    id\n    market(currencyCode: $currencyCode) {\n      bidAskData(country: $countryCode, market: $marketName) {\n        highestBid\n        highestBidSize\n        lowestAsk\n        lowestAskSize\n      }\n    }\n  }\n}\n\nfragment XpressAskPDPFragment on Product {\n  market(currencyCode: $currencyCode) {\n    state(country: $countryCode) {\n      numberOfCustodialAsks\n    }\n  }\n  variants {\n    market(currencyCode: $currencyCode) {\n      state(country: $countryCode) {\n        numberOfCustodialAsks\n      }\n    }\n  }\n}\n",
+        #     "variables": {
+        #         "id": "adidas-gazelle-bold-pink-glow-w",
+        #         "currencyCode": "KRW",
+        #         "countryCode": "KR",
+        #         "marketName": None
+        #     },
+        #     "operationName": "GetMarketData"
+        # })
+
+
+
         # response = requests.post(url, headers=headers, data=payload)
         response = requests.request("POST", url, headers=headers, data=payload)
         # proxies = set_proxies()
         # response = requests.post(url, headers=headers, data=data, proxies=proxies, timeout=3)
         return response
+    
+    ### Lv2) 가격 Parsing ###
+    # input : response
+    # output : state, list[dict{'size_stockx','price_buy_stockx','price_sell_stockx'}]
     def _parse_price(self, response):
         output_productlist = []
 
@@ -710,67 +510,12 @@ class StockXManager:
         for item in data['data']['product']['variants']:
             product = {}
             # id_stockx = item['id']
-            product['size'] = item['market']['bidAskData']['highestBidSize']
-            product['price_buy'] = item['market']['bidAskData']['lowestAsk']
-            product['price_sell'] = item['market']['bidAskData']['highestBid']
+            product['size_stockx'] = item['market']['bidAskData']['highestBidSize']
+            product['price_buy_stockx'] = item['market']['bidAskData']['lowestAsk']
+            product['price_sell_stockx'] = item['market']['bidAskData']['highestBid']
 
             output_productlist.append(product)
 
         return output_productlist
 
 
-    ##### 기능 5 관련 함수 #############################################################################################################################################################################
-    def _get_price_recent(self, urlkey, id_stockx):
-        url = "https://stockx.com/api/p/e"
-        headers = {
-            'Accept': '*/*',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Accept-Language': 'ko-KR',
-            'apollographql-client-name': 'Iron',
-            'apollographql-client-version': '2023.01.29.00',
-            'app-platform': 'Iron',
-            'app-version': '2023.01.29.00',
-            'Origin': 'https://stockx.com',
-            'Referer': 'https://stockx.com/ko-kr/'+urlkey,
-            'sec-ch-ua': '"Not_A Brand";v="99", "Google Chrome";v="109", "Chromium";v="109"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin',
-            'selected-country': 'KR',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
-            'x-operation-name': 'GetMarketData',
-            'x-stockx-device-id': '052ebc20-b6ba-48e5-b3a9-d94b8a64df2a',
-            'Authorization': self.auth_token,
-            'Content-Type': 'application/json',
-            # 'User-Agent': get_user_agent(),
-        }
-        payload = json.dumps({
-        "query": "query GetProductMarketSales($productId: String!, $currencyCode: CurrencyCode, $first: Int, $isVariant: Boolean!) {\n  product(id: $productId) @skip(if: $isVariant) {\n    id\n    market(currencyCode: $currencyCode) {\n      ...MarketSalesFragment\n    }\n  }\n  variant(id: $productId) @include(if: $isVariant) {\n    id\n    market(currencyCode: $currencyCode) {\n      ...MarketSalesFragment\n    }\n  }\n}\n\nfragment MarketSalesFragment on Market {\n  sales(first: $first) {\n    edges {\n      cursor\n      node {\n        amount\n        associatedVariant {\n          id\n          traits {\n            size\n          }\n        }\n        createdAt\n      }\n    }\n  }\n}\n",
-        "variables": {
-            "productId": id_stockx,
-            "currencyCode": "USD",
-            "first": 50,
-            "isVariant": True
-        },
-        "operationName": "GetProductMarketSales"
-        })
-        # response = requests.post(url, headers=headers, data=payload)
-        response = requests.request("POST", url, headers=headers, data=payload)
-        # proxies = set_proxies()
-        # response = requests.post(url, headers=headers, data=data, proxies=proxies, timeout=3)
-        return response
-    def _parse_price_recent(self, response):
-        output = {}
-
-        data = response.json()
-        if(len(data['data']['variant']['market']['sales']['edges']) != 0):
-            output['price_recent'] = data['data']['variant']['market']['sales']['edges'][0]['node']['amount']
-
-        return output
-
-
-
-if __name__ == '__main__':
-    StockXManager = StockXManager()

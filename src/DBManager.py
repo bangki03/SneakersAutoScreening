@@ -1,450 +1,311 @@
 import pymysql
+import pymysql.cursors
 import pandas
 
 class DBManager:
     def __init__(self):
         self.con = pymysql.connect(host='localhost', user='bangki', password='Bangki12!@', db='sneakers', charset='utf8')
-        self.cursor = self.con.cursor()
+        self.cursor = self.con.cursor(pymysql.cursors.DictCursor)
 
-    def __del__(self):
-        self.con.close()
+    def __setManagers__(self, SneakersManager, StockXManager, KreamManager, MusinsaManager, ReportManager):
+        self.SneakersManager = SneakersManager
+        self.StockXManager = StockXManager
+        self.KreamManager = KreamManager
+        self.MusinsaManager = MusinsaManager
+        self.ReportManager = ReportManager
 
+
+
+    #######################################################################################################################################
+    #######################################################################################################################################
+    ### 동작 1-1. market별 상품 존재 여부 확인
+    #######################################################################################################################################
+    #######################################################################################################################################
     
-    ########### Table kream ###########
-    def _kream_insert_productinfo(self, product):
-        try:
-            query = "INSERT INTO kream (brand, model_no, product_name, id_kream, size_mm, size_us) VALUES (%s, %s, %s, %s, %s, %s)" 
-            self.cursor.execute(query, (product['brand'], product['model_no'], product['product_name'], product['id_kream'], product['size_mm'], product['size_us']))
-
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_kream_insert_productinfo' with [미정...]) "%(err))
-    def _kream_select_size(self, id_start, id_end):
-        query = "SELECT id, id_kream, size_kream_mm, size_kream_us FROM kream WHERE id>%d AND id <%d"%(id_start-1, id_end+1)
-        self.cursor.execute(query)
+    ### 1) stockx 등록 상품인지 확인 ###
+    # input : urlkey
+    # output : state
+    def stockx_check_product_exist(self, product):
+        query = "SELECT * from stockx WHERE urlkey=%s"
+        self.cursor.execute(query, (product['urlkey']))
 
         data = self.cursor.fetchall()
-        return data
-    def _kream_select_size_which_price_is_none(self, id_start, id_end):
-        query = "SELECT id, id_kream, size_kream_mm, size_kream_us FROM kream WHERE id>%d AND id <%d AND ((price_buy_kream IS NULL) AND (price_sell_kream IS NULL))"%(id_start-1, id_end+1)
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-        return data
-    def _kream_select_size_estimated(self, brand, model_no, size_estimated):
-        query = "SELECT size_mm, size_us FROM kream WHERE brand=%s AND model_no=%s AND size_mm=%s"
-        self.cursor.execute(query, (brand, model_no, size_estimated))
-
-        data = self.cursor.fetchall()
-        return data
-    def _kream_select_id_kream(self, model_no):
-        query="SELECT id_kream FROM kream WHERE model_no=%s"
-        self.cursor.execute(query, (model_no))
-
-        data = self.cursor.fetchall()
-        return data[0][0]
-    def _kream_select_distict_id_kream_model_no(self):
-        query = "SELECT DISTINCT id_kream, model_no FROM kream"
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-        return data
-    def _kream_select_distict_id_kream_where_model_no(self, model_no):
-        query = "SELECT DISTINCT id_kream FROM kream WHERE model_no=%s"
-        self.cursor.execute(query, (model_no))
-
-        data = self.cursor.fetchall()
-        return data
-
-    ########### Table stockx ###########
-    def _stockx_select_all(self, id_start, id_end):
-        query = "SELECT id, brand, model_no, product_name, urlkey FROM stockx WHERE id>%d AND id <%d"%(id_start-1, id_end+1)
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-        return data
-    
-    def _stockx_select_urlkey(self, urlkey):
-        query = "SELECT id, urlkey FROM stockx WHERE urlkey=%s"
-        self.cursor.execute(query, (urlkey))
-
-        data = self.cursor.fetchall()
-        return data
-    def _stockx_insert_productinfo(self, product):
-        try:
-            query = "INSERT INTO stockx (brand, product_name, id_stockx, urlkey) VALUES (%s, %s, %s, %s)" 
-            self.cursor.execute(query, (product['brand'], product['product_name'], product['id_stockx'], product['urlkey']))
-
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_stockx_insert_productinfo' with [미정...]) "%(err))
-    def _stockx_update_productinfo(self, product):
-        try:
-            query = "UPDATE stockx SET brand=%s, product_name=%s, id_stockx=%s WHERE urlkey=%s"
-            self.cursor.execute(query, (product['brand'], product['product_name'], product['id_stockx'], product['urlkey']))
-
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_stockx_update_productinfo' with [미정...]) "%(err))
-
-
-    def _stockx_select_urlkey_batch(self, id_start, id_end):
-        # query = "SELECT id, urlkey FROM stockx WHERE id>%d AND id <%d"%(id_start-1, id_end+1)
-        query = "SELECT id, urlkey, model_no FROM stockx WHERE id>%d AND id <%d AND model_no IS NULL"%(id_start-1, id_end+1)
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-        return data
-    def _stockx_select_urlkey_NULL_batch(self, id_start, id_end):
-        # query = "SELECT id, urlkey FROM stockx WHERE id>%d AND id <%d"%(id_start-1, id_end+1)
-        query = "SELECT id, urlkey, model_no FROM stockx WHERE id>%d AND id <%d AND model_no IS NOT NULL"%(id_start-1, id_end+1)
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-        return data
-
-    def _stockx_update_model_no(self, model_no, urlkey):
-        try:
-            query = "UPDATE stockx SET model_no=%s WHERE urlkey=%s"
-            self.cursor.execute(query, (model_no, urlkey))
-
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_stockx_update_model_no' with [model_no=%s WHERE urlkey=%s]) "%(err, model_no, urlkey))
-    def _stockx_count_model_no_null(self):
-        query = "SELECT COUNT( case when model_no IS NULL then 1 ) FROM stockx"
-        self.cursor.execute(query)
-        result = self.cursor.fetchone()
-
-        return result[0]
-    
-    ## 이거 쓰는건지 체크
-    def _stockx_select_size(self, table, id_start, id_end):
-        query = "SELECT id, brand, model_no, size_stockx, urlkey FROM %s WHERE id>%d AND id <%d"%(table, id_start-1, id_end+1)
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-        return data
-    
-
-    ########### Table musinsa ###########
-    def _musinsa_insert_id_musinsa(self, product):
-        try:
-            query = "INSERT INTO musinsa (id_musinsa) VALUES (%s)" 
-            self.cursor.execute(query, (product['id_musinsa']))
-
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_musinsa_insert_id_musinsa' with [미정...]) "%(err))
-
-    def _musinsa_select_id_musinsa(self, id_start, id_end):
-        # query = "SELECT id, urlkey FROM stockx WHERE id>%d AND id <%d"%(id_start-1, id_end+1)
-        query = "SELECT id, id_musinsa FROM musinsa WHERE id>%d AND id <%d"%(id_start-1, id_end+1)
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-        return data
-    
-    def _musinsa_update_product(self, product, id_musinsa):
-        try:
-            query = "UPDATE musinsa SET brand=%s, model_no=%s, product_name=%s, price_sale=%s, price_discount=%s WHERE id_musinsa=%s"
-            self.cursor.execute(query, (product['brand'], product['model_no'], product['product_name'], product['price_sale'], product['price_discount'], id_musinsa))
-
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_musinsa_update_product' with [brand=%s, model_no=%s, product_name=%s, price_sale=%s, price_discount=%s WHERE id_musinsa=%s]) "%(err, product['brand'], product['model_no'], product['product_name'], product['price_sale'], product['price_discount'], id_musinsa))
-
-    def _musinsa_select_price(self, id_start, id_end):
-        query = "SELECT id, model_no, id_musinsa, price_sale, price_discount FROM musinsa WHERE id>%d AND id <%d"%(id_start-1, id_end+1)
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-        return data
-
-
-
-    ########### Table sneakers ###########
-    def _sneakers_select_all(self, id_start, id_end):
-        query = "SELECT id, brand, model_no, product_name, urlkey FROM sneakers WHERE id>%d AND id <%d"%(id_start-1, id_end+1)
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-        return data
-    
-    def _sneakers_insert_productinfo(self, brand, model_no, product_name, urlkey):
-        try:
-            query = "INSERT INTO sneakers (brand, model_no, product_name, urlkey) VALUES (%s, %s, %s, %s)"
-            self.cursor.execute(query, (brand, model_no, product_name, urlkey))
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_sneakers_insert_productinfo' with [미정...]) "%(err))    
-
-
-
-    ########### Table sneakers_price ###########
-    def _sneakers_price_update_price_kream(self, id_kream, size_kream_mm, size_kream_us, price_buy, price_sell, price_recent):
-        try:
-            # query = "INSERT INTO sneakers_price (id, id_kream, size_kream_mm, size_kream_us, price_buy_kream, price_sell_kream) VALUES (%s, %s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE price_buy_kream=%s, price_sell_kream=%s"
-            # query = "UPDATE sneakers_price SET price_buy_kream='%s', price_sell_kream='%s' WHERE id_kream=%s AND size_kream_mm=%s AND size_kream_us=%s"
-            query = "UPDATE sneakers_price SET price_buy_kream=%s, price_sell_kream=%s, price_recent_kream=%s WHERE id_kream=%s AND size_kream_mm=%s AND size_kream_us=%s"
-            self.cursor.execute(query, (price_buy, price_sell, price_recent, id_kream, size_kream_mm, size_kream_us))
-
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_sneakers_price_update_priceinfo' with [id_kream=%s AND size_kream_mm=%s AND size_kream_us=%s]"%(err, id_kream, size_kream_mm, size_kream_us))
-    
-    def _sneakers_price_select_product(self, urlkey, size_stockx):
-        query = "SELECT id FROM sneakers_price WHERE urlkey=%s AND size_stockx=%s"
-        self.cursor.execute(query, (urlkey, size_stockx))
-
-        data = self.cursor.fetchall()
-        return data
-    def _sneakers_price_select_product_from_only_urlkey(self, urlkey):
-        query = "SELECT id FROM sneakers_price WHERE urlkey=%s"
-        self.cursor.execute(query, (urlkey))
-
-        data = self.cursor.fetchall()
-        return data
-    def _sneakers_price_select_model_no_id_kream_null(self):
-        query = "SELECT DISTINCT model_no FROM sneakers_price WHERE id_kream IS NULL"
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-        return data
-
-    def _sneakers_price_insert_data_with_size(self, brand, model_no, product_name, size, urlkey, id_stockx):
-        try:
-            ## 임시로 id_stockx만 업데이트
-            # query = "UPDATE sneakers_price SET id_stockx=%s WHERE model_no=%s AND size_stockx=%s"
-            # self.cursor.execute(query, (id_stockx, model_no, size))
-
-            query = "INSERT INTO sneakers_price (brand, model_no, product_name, size_stockx, urlkey, id_stockx) VALUES (%s, %s, %s, %s, %s, %s)"
-            self.cursor.execute(query, (brand, model_no, product_name, size, urlkey, id_stockx))
-
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_sneakers_price_insert_data_with_size' with [brand=%s, model_no=%s, product_name=%s, size=%s, urlkey=%s, id_stockx=%s]"%(err, brand, model_no, product_name, size, urlkey, id_stockx))
-    def _sneakers_price_insert_data_with_size_and_price(self, brand, model_no, product_name, size, urlkey, id_stockx, price_buy, price_sell):
-        try:
-            ## 임시로 id_stockx만 업데이트
-            # query = "UPDATE sneakers_price SET id_stockx=%s WHERE model_no=%s AND size_stockx=%s"
-            # self.cursor.execute(query, (id_stockx, model_no, size))
-
-            query = "INSERT INTO sneakers_price (brand, model_no, product_name, size_stockx, urlkey, id_stockx, price_buy_stockx, price_sell_stockx) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
-            self.cursor.execute(query, (brand, model_no, product_name, size, urlkey, id_stockx, price_buy, price_sell))
-
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_sneakers_price_insert_data_with_size' with [brand=%s, model_no=%s, product_name=%s, size=%s, urlkey=%s, id_stockx=%s]"%(err, brand, model_no, product_name, size, urlkey, id_stockx))
-     
-    def _sneakers_price_select_distinct_urlkey(self):
-        query = "SELECT DISTINCT urlkey FROM sneakers_price"
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-        return data
-    def _sneakers_price_select_distinct_model_no(self):
-        query = "SELECT DISTINCT model_no FROM sneakers_price"
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-        return data
-    def _sneakers_price_select_id_stockx_in_urlkey(self, urlkey):
-        query = "SELECT id_stockx FROM sneakers_price WHERE urlkey=%s"
-        self.cursor.execute(query, (urlkey))
-
-        data = self.cursor.fetchall()
-        return data
-    def _sneakers_price_update_price_stockx(self, size, price_buy, price_sell, urlkey):
-        try:
-            # query = "INSERT INTO sneakers_price (size_stockx, price_buy_stockx, price_sell_stockx, urlkey) VALUES (%s, %s, %s, %s) ON DUPLICATE KEY UPDATE price_buy_stockx=%s, price_sell_stockx=%s"
-            query = "UPDATE sneakers_price SET price_buy_stockx=NULLIF(%s, 0), price_sell_stockx=NULLIF(%s, 0) WHERE urlkey=%s AND size_stockx=%s"
-            self.cursor.execute(query, (price_buy, price_sell, urlkey, size))
-
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_sneakers_price_update_price_stockx' with [urlkey=%s AND size_stockx=%s]"%(err, urlkey, size))
-    def _sneakers_price_update_price_recent_stockx(self, id_stockx, price_recent):
-        try:
-            query = "UPDATE sneakers_price SET price_recent_stockx=NULLIF(%s, 0) WHERE id_stockx=%s"
-            self.cursor.execute(query, (price_recent, id_stockx))
-
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_sneakers_price_update_price_recent_stockx' with [id_stockx=%s]"%(err, id_stockx))
-    def _sneakers_price_update_price_kream_and_price_recent_stockx(self, price_buy_kream, price_sell_kream, price_recent_kream, price_recent_stockx, id_stockx):
-        try:
-            query = "UPDATE sneakers_price SET price_buy_kream=NULLIF(%s, 0), price_sell_kream=NULLIF(%s, 0), price_recent_kream=NULLIF(%s, 0), price_recent_stockx=NULLIF(%s, 0) WHERE id_stockx=%s"
-            self.cursor.execute(query, (price_buy_kream, price_sell_kream, price_recent_kream, price_recent_stockx, id_stockx))
-
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_sneakers_price_update_price_kream_and_price_recent_stockx' with [id_stockx=%s]"%(err, id_stockx))
-
-    def _sneakers_price_select_size_stockx_batch(self, id_start, id_end):
-        query = "SELECT id, brand, model_no, size_stockx, urlkey FROM sneakers_price WHERE id>%d AND id <%d"%(id_start-1, id_end+1)
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-        return data
-    def _sneakers_price_select_size_stockx(self, urlkey):
-        query = "SELECT id, brand, model_no, size_stockx, urlkey FROM sneakers_price WHERE urlkey=%s"
-        self.cursor.execute(query, urlkey)
-
-        data = self.cursor.fetchall()
-        return data
-    def _sneakers_price_update_size_estimated_mm(self, brand, model_no, size_stockx, size_estimated_mm):
-        try:
-            query = "UPDATE sneakers_price SET size_estimated_mm=%s WHERE brand=%s AND model_no=%s AND size_stockx=%s"
-            self.cursor.execute(query, (size_estimated_mm, brand, model_no, size_stockx))
-
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_sneakers_price_update_size_estimated_mm' with [brand=%s, model_no=%s, size_stockx=%s]"%(err, brand, model_no, size_stockx))
-    def _sneakers_price_update_size_estimated_mm_where_id(self, id, size_estimated_mm):
-        try:
-            query = "UPDATE sneakers_price SET size_estimated_mm=%s WHERE id=%s"
-            self.cursor.execute(query, (size_estimated_mm, id))
-
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_sneakers_price_update_size_estimated_mm' with [size_estimated_mm=%s WHERE id=%s]"%(err, size_estimated_mm, id))
-    def _sneakers_price_select_size_estimated_null(self, id_start, id_end):
-        query = "SELECT id, brand, size_stockx FROM sneakers_price WHERE size_estimated_mm IS NULL AND id>%d AND id <%d"%(id_start-1, id_end+1)
-        self.cursor.execute(query)
-
-        data = self.cursor.fetchall()
-        return data
+        if(len(data)>0):
+            return True
+        else:
+            return False
         
-    def _sneakers_price_select_size_estimated(self, id_start, id_end):
-        query = "SELECT id, brand, model_no, size_stockx, size_estimated_mm FROM sneakers_price WHERE id>%d AND id <%d"%(id_start-1, id_end+1)
-        self.cursor.execute(query)
 
+    ### 2) kream 등록 상품인지 확인 ### 
+    # input : id_kream, model_no
+    # output : state
+    def kream_check_product_exist(self, product):
+        ### id_kream / model_no 다른 상품 
+        query = "SELECT * from kream WHERE id_kream=%s or model_no=%s"
+        self.cursor.execute(query, (product['id_kream'], product['model_no']))
+        data_both = self.cursor.fetchall()
+
+        ### 본 편 ###
+        query = "SELECT * from kream WHERE id_kream=%s and model_no=%s"
+        self.cursor.execute(query, (product['id_kream'], product['model_no']))
         data = self.cursor.fetchall()
-        return data
-    def _sneakers_price_update_model_no_from_urlkey(self, model_no, urlkey):
-        try:
-            query = "UPDATE sneakers_price SET model_no=%s WHERE urlkey=%s"
-            self.cursor.execute(query, (model_no, urlkey))
 
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_sneakers_price_update_model_no_from_urlkey' with [model_no=%s AND urlkey=%s]"%(err, model_no, urlkey))
+        if(len(data_both) != len(data)):
+            print("[DBManager] : kream 상품 이상 감지(id_kream: %s, model_no: %s)"%(product['id_kream'], product['model_no']))
+
+
+        if(len(data)>0):
+            return True
+        else:
+            return False
+
+    ### 3) musinsa 등록 상품인지 확인 ###
+    # input : id_musinsa
+    # output : state
+    def musinsa_check_product_exist(self, product):
+        ### 본 편 ###
+        query = "SELECT * from musinsa WHERE id_musinsa=%s"
+        self.cursor.execute(query, (product['id_musinsa']))
+        data = self.cursor.fetchall()
+
+        if(len(data)>0):
+            return True
+        else:
+            return False
         
-    def _sneakers_price_update_size_kream(self, brand, model_no, size_stockx, size_estimated_mm, size_mm, size_us):
-        try:
-            query = "UPDATE sneakers_price SET size_kream_mm=%s, size_kream_us=%s WHERE brand=%s AND model_no=%s AND size_stockx=%s AND size_estimated_mm=%s"
-            self.cursor.execute(query, (size_mm, size_us, brand, model_no, size_stockx, size_estimated_mm))
 
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_sneakers_price_update_size_kream' with [brand=%s AND model_no=%s AND size_stockx=%s AND size_estimated_mm=%s]"%(err, brand, model_no, size_stockx, size_estimated_mm))
-    def _sneakers_price_update_id_kream(self, model_no, id_kream):
-        try:
-            query = "UPDATE sneakers_price SET id_kream=%s WHERE INSTR(model_no, %s)"
-            self.cursor.execute(query, (id_kream, model_no))
 
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_sneakers_price_update_id_kream' with [id_kream=%s WHERE model_no=%s]"%(err, id_kream, model_no))
+    #######################################################################################################################################
+    #######################################################################################################################################
+    ### 동작 1-2. 각 market 상품 업데이트
+    #######################################################################################################################################
+    #######################################################################################################################################
 
-    def _sneakers_price_select_all_in_urlkey(self, urlkey):
-        self.cursor = self.con.cursor(pymysql.cursors.DictCursor)   ## Dictionary로 데이터 가져오기 위함
-        query = "SELECT * FROM sneakers_price WHERE urlkey=%s"
-        self.cursor.execute(query, (urlkey))
+    ### 1) stockx 상품 업데이트 ###
+    def stockx_update_product(self, product):
+        query = "INSERT INTO stockx (brand, product_name, id_stockx, urlkey) VALUES (%s, %s, %s, %s)" 
+        self.cursor.execute(query, (product['brand'], product['product_name'], product['id_stockx'], product['urlkey']))
 
-        data = self.cursor.fetchall()
-        self.cursor = self.con.cursor() ## 다시 커서 원복해놓자.
-        return data
+        self.con.commit()
+    
+    ### 2) kream 상품 업데이트 ###
+    def kream_update_product(self, product):
+        query = "INSERT INTO kream (brand, model_no, product_name, id_kream, size_mm, size_us) VALUES (%s, %s, %s, %s, %s, %s)" 
+        self.cursor.execute(query, (product['brand'], product['model_no'], product['product_name'], product['id_kream'], product['size_mm'], product['size_us']))
 
-    def _sneakers_price_update_musinsa_price(self, model_no, price_sale_musinsa, price_discount_musinsa, id_musinsa):
-        try:
-            query = "UPDATE sneakers_price SET id_musinsa=%s, price_sale_musinsa=%s, price_discount_musinsa=%s WHERE model_no=%s"
-            self.cursor.execute(query, (id_musinsa, price_sale_musinsa, price_discount_musinsa, model_no))
+        self.con.commit()
+    
+    ### 3) musinsa 상품 업데이트 ###
+    def musinsa_update_product(self, product):
+        query = "INSERT INTO musinsa (brand, model_no, product_name, id_musinsa, registered) VALUES (%s, %s, %s, %s, False)" 
+        self.cursor.execute(query, (product['brand'], product['model_no'], product['product_name'], product['id_musinsa']))
 
-            self.con.commit()
-        except Exception as err:
-            print("[DBManager] : Error(%s) at '_sneakers_price_update_size_kream' with [brand=%s AND model_no=%s AND size_stockx=%s AND size_estimated_mm=%s]"%(err, brand, model_no, size_stockx, size_estimated_mm))
+        self.con.commit()
+    
 
-    ########### Common ###########
-    def _table_count_total(self, table):
+
+    #######################################################################################################################################
+    #######################################################################################################################################
+    ### 동작 2-2. sneakers_price 상품 업데이트
+    #######################################################################################################################################
+    #######################################################################################################################################
+
+    ### 1) 전체 상품 수 읽어오기 ###
+    def table_count_total(self, table):
         query = "SELECT COUNT(*) FROM %s"%(table)
         self.cursor.execute(query)
         result = self.cursor.fetchone()
         
         return result[0]
-    def _table_truncate(self, table):
-        query = "TRUNCATE %s"%(table)
-        self.cursor.execute(query)
-        self.con.commit()
 
-    def _common_select_product(self):
-        query = "SELECT brand, model_no, product_name, urlkey FROM stockx WHERE model_no in (select model_no from kream)"
-
+    ### 1) stockx 상품 읽어오기 ###
+    def stockx_fetch_product(self):
+        query = "SELECT * from stockx WHERE model_no IS NOT NULL"
         self.cursor.execute(query)
+
         data = self.cursor.fetchall()
         return data
+    
+    ### 2) kream 상품 읽어오기 ###
+    def kream_fetch_product(self):        
+        query = "SELECT DISTINCT model_no, id_kream from kream WHERE registered IS False AND model_no IS NOT NULL"
+        self.cursor.execute(query)
 
-
-    ########### return Pandas ###########
-    def _fetch_kream_product(self, option_pandas=False):
-        query = "SELECT DISTINCT brand, model_no, product_name FROM kream"
-        if(option_pandas):
-            data = pandas.read_sql_query(query,self.con)
-        else:
-            self.cursor.execute(query)
-            data = self.cursor.fetchall()
-
+        data = self.cursor.fetchall()
         return data
         
-    def _fetch_stockx_product(self, option_pandas=False):
-        query = "SELECT DISTINCT brand, model_no, urlkey, product_name FROM stockx"
-        if(option_pandas):
-            data = pandas.read_sql_query(query,self.con)
-        else:
-            self.cursor.execute(query)
-            data = self.cursor.fetchall()
+    
+    ### 3) musinsa 상품 읽어오기 ###
+    def musinsa_fetch_product(self):
+        query = "SELECT * from musinsa WHERE registered IS False"
+        self.cursor.execute(query)
+
+        data = self.cursor.fetchall()
+        return data
+    
+    ### 3) sneakers_price 상품 읽어오기 (kream 업데이트 필요 데이터) ###
+    def sneakers_price_fetch_product(self, product):
+        query = "SELECT * from sneakers_price WHERE model_no=%s AND id_kream IS NULL"
+        self.cursor.execute(query, (product['model_no']))
+        data = self.cursor.fetchall()
 
         return data
     
-    def _fetch_musinsa_product(self, option_pandas=False):
-        query = "SELECT DISTINCT brand, model_no, product_name, price_sale, price_discount FROM musinsa"
-        if(option_pandas):
-            data = pandas.read_sql_query(query,self.con)
-        else:
-            self.cursor.execute(query)
-            data = self.cursor.fetchall()
+
+    ### 4) size_estimated_mm 와 같은 사이즈의 kream 상품 읽어오기 ###
+    def kream_fetch_product_size(self, product):
+        query = "SELECT * from kream WHERE model_no=%s AND size_kream_mm=%s"
+        self.cursor.execute(query, (product['model_no'], product['size_estimated_mm']))
+        data = self.cursor.fetchall()
 
         return data
 
-    def _fetch_sneakers_product(self, option_pandas=False):
-        query = "SELECT brand, model_no, product_name, urlkey FROM stockx WHERE model_no in (select model_no from kream) AND model_no != ''"
-        if(option_pandas):
-            data = pandas.read_sql_query(query,self.con)
-        else:
-            self.cursor.execute(query)
+    ### 2) sneakers_price 상품 등록 여부 확인
+    def sneakers_price_check_product_need_update(self, market, product):
+        if(market=='stockx'):
+            query = "SELECT * from sneakers_price WHERE urlkey=%s"
+            self.cursor.execute(query, (product['urlkey']))
             data = self.cursor.fetchall()
+
+            if(len(data)==0):
+                return True
+            else:
+                return False
+
+        elif(market=='kream'):
+            query = "SELECT * from sneakers_price WHERE model_no=%s AND id_kream IS NULL"
+            self.cursor.execute(query, (product['model_no']))
+            data = self.cursor.fetchall()
+
+            if(len(data)>0):
+                return True
+            else:
+                return False
+
+        elif(market=='musinsa'):
+            query = "SELECT * from sneakers_price WHERE model_no=%s AND id_musinsa IS NULL"
+            self.cursor.execute(query, (product['model_no']))
+            data = self.cursor.fetchall()
+
+            if(len(data)>0):
+                return True
+            else:
+                return False
+            
+        else:
+            print("[DBManager] : 존재하지 않는 Market(%s) 입니다."%(market))
+            pass
+
+
+    ### 1) stockx 상품 업데이트 ###
+    def sneakers_price_update_product(self, market, product):
+        if(market=='stockx'):
+            query = "INSERT INTO sneakers_price (brand, model_no, product_name, size_stockx, size_estimated_mm, id_stockx, urlkey) VALUES (%s, %s, %s, %s, %s, %s, %s)" 
+            self.cursor.execute(query, (product['brand'], product['model_no'], product['product_name'], product['size_stockx'], product['size_estimated_mm'], product['id_stockx'], product['urlkey']))
+            
+            self.con.commit()
+
+        elif(market=='kream'):
+            query = "UPDATE sneakers_price SET id_kream=%s, size_kream_mm=%s, size_kream_us=%s  WHERE model_no=%s AND size_estimated_mm=%s" 
+            self.cursor.execute(query, (product['id_kream'], product['size_kream_mm'], product['size_kream_us'], product['model_no'], product['size_kream_mm']))
+            self.con.commit()
+
+        elif(market=='musinsa'):
+            query = "UPDATE sneakers_price SET id_musinsa=%s WHERE model_no=%s" 
+            self.cursor.execute(query, (product['id_musinsa'], product['model_no']))
+            
+            self.con.commit()
+
+            self.musinsa_update_registered(product)
+
+        else:
+            print("[DBManager] : 존재하지 않는 Market(%s) 입니다."%(market))
+            pass
+
+    ### 2) musinsa 상품 price_sneakers에 등록 시, 업데이트
+    def musinsa_update_registered(self, product):
+        query = "UPDATE musinsa SET registered=True WHERE model_no=%s"
+        self.cursor.execute(query, (product['model_no']))
+        self.con.commit()
+
+    def sneakers_price_update_product_id_kream(self, product):
+        query = "UPDATE sneakers_price SET id_kream=%s WHERE model_no=%s"
+        self.cursor.execute(query, (product['id_kream'], product['model_no']))
+        self.con.commit()
+
+    def kream_update_registered(self, product):
+        query = "UPDATE kream SET registered=True WHERE model_no=%s"
+        self.cursor.execute(query, (product['model_no']))
+        self.con.commit()
+
+
+    #######################################################################################################################################
+    #######################################################################################################################################
+    ### 동작 3. sneakers_price 가격 업데이트
+    #######################################################################################################################################
+    #######################################################################################################################################
+
+    ### 1) sneakers_price 가격 업데이트
+    def sneakers_price_update_price(self, market, product):
+        if(market=='stockx'):
+            query = "UPDATE sneakers_price SET price_buy_stockx=%s, price_sell_stockx=%s WHERE urlkey=%s AND size_stockx=%s" 
+            self.cursor.execute(query, (product['price_buy_stockx'], product['price_sell_stockx'], product['urlkey'], product['size_stockx']))
+            
+            self.con.commit()
+        elif(market=='kream'):
+            query = "UPDATE sneakers_price SET price_buy_kream=%s, price_sell_kream=%s, price_recent_kream=%s WHERE id_kream=%s AND size_kream_mm=%s AND size_kream_us=%s" 
+            self.cursor.execute(query, (product['price_buy_kream'], product['price_sell_kream'], product['price_recent_kream'], product['id_kream'], product['size_kream_mm'], product['size_kream_us']))
+            
+            self.con.commit()
+        elif(market=='musinsa'):
+            query = "UPDATE sneakers_price SET price_sale_musinsa=%s, price_discount_musinsa=%s WHERE id_musinsa=%s" 
+            self.cursor.execute(query, (product['price_sale_musinsa'], product['price_discount_musinsa'], product['id_musinsa']))
+            
+            self.con.commit()
+        else:
+            print("[DBManager] : 존재하지 않는 Market(%s) 입니다."%(market))
+            pass
+
+    ### 2) Distinct urlkey (stockx 가격 업데이트 필요한 상품군 불러오기 위함) ###
+    def sneakers_price_fetch_urlkey(self):
+        query = "SELECT DISTINCT urlkey FROM sneakers_price"
+        self.cursor.execute(query)
+        data = self.cursor.fetchall()
+        
+        return data
+    
+    ### 3) Distinct id_kream (kream 가격 업데이트 필요한 상품군 불러오기 위함) ###
+    def sneakers_price_fetch_id_kream(self):
+        query = "SELECT DISTINCT id_kream from sneakers_price WHERE id_kream IS NOT NULL"
+        self.cursor.execute(query)
+        data = self.cursor.fetchall()
 
         return data
     
-    def _fetch_sneakers_price(self, option_pandas=False):
-        query = "SELECT brand, model_no, product_name, size_stockx, size_estimated_mm, size_kream_mm, size_kream_us, price_buy_kream, price_sell_kream, price_recent_kream, price_buy_stockx, price_sell_stockx, price_recent_stockx, updated_at FROM sneakers_price"
-        if(option_pandas):
-            data = pandas.read_sql_query(query,self.con)
-        else:
-            self.cursor.execute(query)
-            data = self.cursor.fetchall()
+    ### 4) Distinct id_musinsa (musinsa 가격 업데이트 필요한 상품군 불러오기 위함) ###
+    def sneakers_price_fetch_id_muisnsa(self):
+        query = "SELECT DISTINCT id_musinsa from sneakers_price WHERE id_musinsa IS NOT NULL"
+        self.cursor.execute(query)
+        data = self.cursor.fetchall()
 
         return data
-
-
-    #### 임시
-    def _fetch_musinsa_stockx_product(self, option_pandas):
-        query = "SELECT brand, model_no, product_name FROM musinsa WHERE lower(model_no) in lower(select model_no from stockx)"
-        if(option_pandas):
-            data = pandas.read_sql_query(query,self.con)
-        else:
-            self.cursor.execute(query)
-            data = self.cursor.fetchall()
+    
+    ### 5) 특정 urlkey 상품 불러오기 (urlkey 단위 상품 가격 업데이트 위함) ###
+    def sneakers_price_fetch_product_urlkey(self, urlkey):
+        query = "SELECT * FROM sneakers_price WHERE urlkey=%s"
+        self.cursor.execute(query, (urlkey))
+        data = self.cursor.fetchall()
 
         return data
+    
+    ### 6) 특정 id_kream 상품 불러오기 (id_kream 단위 상품 가격 업데이트 위함) ###
+    def sneakers_price_fetch_product_id_kream(self, id_kream):
+        query = "SELECT * FROM sneakers_price WHERE id_kream=%s"
+        self.cursor.execute(query, (id_kream))
+        data = self.cursor.fetchall()
+
+        return data
+    
+    
+    
+    

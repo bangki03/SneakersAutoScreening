@@ -4,5 +4,5 @@ report/
 .commit_message
 .vscode
 .venv
-src/new
-src/old
+src/A.04
+src/A.06

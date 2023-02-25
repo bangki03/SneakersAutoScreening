@@ -9,369 +9,121 @@ from Lib_else import sleep_random
 
 class SneakersManager:
     def __init__(self):
-        self.DBManager = DBManager()
-        self.KreamManager = KreamManager()
-        self.StockXManager = StockXManager()
-        self.MusinsaManager = MusinsaManager()
-        self.ReportManager = ReportManager()
+        pass
 
-        ### SETTING ###
-        self.brand_list_kream = ['Nike', 'Jordan', 'Adidas', 'New Balance', 'Vans', 'Converse',]
-        self.brand_list_stockx = ['Nike', 'Jordan', 'Adidas', 'New Balance', 'Vans', 'Converse',]
-        self.brand_list_musinsa = ['adidas', 'vans', 'converse']
+    def __setManagers__(self, StockXManager, KreamManager, MusinsaManager, DBManager, ReportManager):
+        self.StockXManager = StockXManager
+        self.KreamManager = KreamManager
+        self.MusinsaManager = MusinsaManager
+        self.DBManager = DBManager
+        self.ReportManager = ReportManager
 
-    ### 기능 1) (kream & stockx) 상품 스크랩
-    def scrap_product(self):
-        self.scrap_stockx_product(delay_min=0.2, delay_max=0.5, brand_list=self.brand_list_stockx)
-        # self.DBManager._table_truncate(table="kream")
-        self.scrap_kream_product(delay_min=0.2, delay_max=0.5, brand_list=self.brand_list_kream)
-        self.scrap_stockx_model_no(id_start=1, batch=50, delay_min=5.0, delay_max=7.0)        ## 얘가 웰케 403 걸리지
-        # self.DBManager._table_truncate(table="sneakers")
-        self.export_common_product()
-        # self.DBManager._table_truncate(table="sneakers_price")
-        self.scrap_stockx_size(table='sneakers', id_start=1, batch=50, delay_min=0.8, delay_max=1.2)
-        self.fill_size_estimated_mm(id_start=1)
-        self.match_kream_size(id_start=1, batch=200)
-        self.match_id_kream()
+
+    ### 동작 1. 상품 업데이트
+    def update_product(self, batch=200):
+        print("[SneakersManager] : stockx 상품 등록 시작합니다.")
+        data = self.DBManager.stockx_fetch_product()
         
-    ### 기능 2) (kream & stockx) 가격 스크랩
-    def scrap_price(self, id_start=1, delay_min = 0.4, delay_max=0.5):
-        # [To Do] 
-        # 1. Kream 사이즈별로 가격 스크랩
-        # 2. StockX 모델별로 가격 스크랩
-        # 3. StockX 사이즈별로 체결가 스크랩
-        # 특징) 
-        # 1. 한 서버에 너무 빠르게 자주 요청하면, 403 Forbidden 혹인 429 Too Many Request 발생.
-        #   └ 최대한 교대로 배치(Process 이용하면 좋겠지만, 일단은 수동 제어하자.)
-        #
-        # How)
-        # 1. 모델별로 batch 생성
-        # 2. StockX 가격 스크랩
-        # 3. 사이즈별로
-        #   1) Kream 가격 스크랩
-        #   2) StockX 체결가스크랩
-        # 4. DB에 update 요청
-        data = self.DBManager._sneakers_price_select_distinct_urlkey()
-        cnt_total = len(data)
+        data_filtered = [item for item in data if self.DBManager.sneakers_price_check_product_need_update(market='stockx', product=item)]
 
+        print("[SneakersManager] : 신규 상품 %d개 등록합니다."%(len(data_filtered)))
+        
         tic = time.time()
-        for index, urlkey in enumerate(data):
+        for index, item in enumerate(data_filtered):
+            sleep_random(0.2, 0.5)
+            state, data_size = self.StockXManager.scrap_size(urlkey=item['urlkey'])
+
+            if(state):
+                for item_size in data_size:
+                    item.update(item_size)
+                    self._convert_size_US2mm(item)
+                    self.DBManager.sneakers_price_update_product(market='stockx', product=item)
+                    toc=time.time()
+                print("[SneakersManager] : 사이즈 스크랩 및 상품 등록 중 (%d/%d) [%.1fmin]" %(index+1, len(data_filtered), (toc-tic)/60))    
+
+
+        print("[SneakersManager] : stockx 상품 등록 완료하였습니다.")
+
+    ### 동작 2. 가격 업데이트
+    def update_price(self, id_start=1, batch=200):
+        print("[SneakersManager] : 가격 scrap 시작합니다.")
+
+        list_urlkey = self.DBManager.sneakers_price_fetch_urlkey()
+        cnt_total = len(list_urlkey)
+
+        tic=time.time()
+        for index, product in enumerate(list_urlkey):
             if(index<id_start-1):
                 continue
 
-            # 2.StockX 가격 스크랩
-            state, price_stockx_list = self.StockXManager.scrap_price(urlkey=urlkey[0])
-            if(state):
-                for item in price_stockx_list:
-                    self.DBManager._sneakers_price_update_price_stockx(size=item['size'], price_buy=item['price_buy'], price_sell=item['price_sell'], urlkey=urlkey[0])
+            data = self.DBManager.sneakers_price_fetch_product_urlkey(urlkey=product['urlkey'])
+            registered_at = self.check_market_registered(data)
 
-            # 3. 사이즈 별로
-            data_batch = self.DBManager._sneakers_price_select_all_in_urlkey(urlkey=urlkey[0])
-            for item in data_batch:
+            if(registered_at['kream']):
+                for item in data:
+                    state = self.KreamManager.scrap_price(item)
+                    if(state):
+                        self.DBManager.sneakers_price_update_price(market='kream', product=item)
 
-                sleep_random(delay_min, delay_max)
-                state_kream, data_kream = self.KreamManager.scrap_price(id_kream=item['id_kream'], size_mm=item['size_kream_mm'], size_us=item['size_kream_us'])
-                if(state_kream):
-                    self.DBManager._sneakers_price_update_price_kream(id_kream=item['id_kream'], size_kream_mm=item['size_kream_mm'], size_kream_us=item['size_kream_us'], price_buy=data_kream['price_buy'], price_sell=data_kream['price_sell'], price_recent=data_kream['price_recent'])
+            if(registered_at['musinsa']):
+                id_musinsa = data[0]['id_musinsa']
+                state, data_musinsa = self.MusinsaManager.scrap_price(id_musinsa=id_musinsa)
+                if(state):
+                    self.DBManager.sneakers_price_update_price(market='musinsa', product=data_musinsa)
 
-                # sleep_random(delay_min, delay_max)
-                # state_stockx, data_stockx = self.StockXManager.scrap_price_recent(urlkey=urlkey, id_stockx=item['id_stockx'])
-                # if(state_stockx):
-                #     self.DBManager._sneakers_price_update_price_recent_stockx(id_stockx=item['id_stockx'], price_recent=data_stockx['price_recent'])
-
-
-                # self.DBManager._sneakers_price_update_price_kream_and_price_recent_stockx(price_buy_kream=data_kream['price_buy'], price_sell_kream=data_kream['price_sell'], price_recent_kream=data_kream['price_recent'], price_recent_stockx=data_stockx['price_recent'], id_stockx=item['id_stockx'])
-
-            
-            toc = time.time()
-            print("[SneakersManager] : (%s)가격 스크랩 완료(%d/%d) [%.1fmin]"%(urlkey[0], index+1, cnt_total, (toc-tic)/60))
-
-        self.export_report_price()
-
-    ### 기능 3) (kream & stockx) Report 발행
-    def export_report_price(self):
-        self.ReportManager.export_report_price()
+            if(registered_at['stockx']):
+                state, data_stockx = self.StockXManager.scrap_price(urlkey=product['urlkey'])
+                if(state):
+                    for item_stockx in data_stockx:
+                        item_stockx['urlkey'] = product['urlkey']
+                        self.DBManager.sneakers_price_update_price(market='stockx', product=item_stockx)
+                    
+            toc=time.time()
+            print("[SneakersManager] : (%s)가격 스크랩 완료(%d/%d) [%.1fmin]"%(item['urlkey'], index+1, cnt_total, (toc-tic)/60))
+        
+        print("[SneakersManager] : 가격 등록 완료하였습니다.")
 
 
+    def check_market_registered(self, data):
+        registered_at = {
+            'stockx' : False,
+            'kream' : False,
+            'musinsa' : False,
+        }
+        if(data[0]['id_kream'] != None):
+            registered_at['kream'] = True
+        if(data[0]['id_musinsa'] != None):
+            registered_at['musinsa'] = True
+        registered_at['stockx'] = registered_at['kream'] or registered_at['musinsa']
+
+        return registered_at
+        
+
+        
 
 
-    ### 기능 4) (Musinsa) 상품 스크랩
-    def scrap_musinsa_product(self):
-        # self.DBManager._table_truncate(table="musinsa")
-        # self.scrap_musinsa_id_musinsa(brand_list=self.brand_list_musinsa, delay_min=0.5, delay_max=0.8)
-        # self.scrap_musinsa_price(id_start=161, batch=20, delay_min=0.4, delay_max=0.5)
-
-        self.update_musinsa_report(id_start=1, batch=40)
+    #######################################################################################################################################
+    #######################################################################################################################################
+    ### 동작 1. 상품 업데이트
+    #######################################################################################################################################
+    #######################################################################################################################################
     
 
 
-    ######### 정리하자 #########
-    # 상품 스크랩 기존처럼
-    # kream 그대로 (새걸로)
-    # stockx 그대로 (업데이트)
-    # musinsa 그대로 (새걸로)
 
-    # sneakers_price는
-    # stockx 업데이트 (가격, 사이즈)
-    # kream 업데이트 (예상 사이즈, 가격)
-    # musinsa 업데이트
+
+
+    #######################################################################################################################################
+    #######################################################################################################################################
+    ### 기타 2. 사이즈 변환 (US → mm)
+    #######################################################################################################################################
+    #######################################################################################################################################
     
-
-    def tmp(self):
-        #### 상품 스크랩 (stockx) ####
-        # self.scrap_stockx_product(delay_min=0.2, delay_max=0.5, brand_list=self.brand_list_stockx)
-        self.scrap_stockx_model_no(id_start=1, batch=50, delay_min=5.0, delay_max=7.0)        ## 얘가 웰케 403 걸리지
-
-        #### 상품 스크랩 (musinsa) ####
-        # self.DBManager._table_truncate(table="musinsa")
-        # self.scrap_musinsa_id_musinsa(brand_list=self.brand_list_musinsa, delay_min=0.5, delay_max=0.8)
-        # self.scrap_musinsa_price(id_start=1, batch=20, delay_min=0.4, delay_max=0.5)
-
-        #### 상품 스크랩 (kream) ####
-        # self.DBManager._table_truncate(table="kream")
-        # self.scrap_kream_product(delay_min=0.2, delay_max=0.5, brand_list=self.brand_list_kream)
-
-
-        #### sneakers_price 만들기 ####
-        # self.update_sneakers_price_model_no(id_start=2950, batch=200) # ~1827 / 2700~3410 / 5053~
-        # if(False):
-        #     self.scrap_stockx_size(table='stockx', id_start=1, batch=20, delay_min=0.8, delay_max=1.0)  # 사이즈만
-        # else:
-        #     self.scrap_stockx_size_with_price(table='stockx', id_start=1, batch=20, delay_min=0.8, delay_max=1.0)   # 하는 김에 가격까지
-
-        #### 가격 스크랩 (stockx) ####
-
-        #### 가격 스크랩 (kream) ####
-        # self.fill_size_estimated_mm_null(id_start=110310, batch=500)
-        # self.match_kream_size(id_start=29401, batch=200)        ## 우선 33000까지만
-        # self.match_id_kream()
-        # self.scrap_kream_price(id_start=503, delay_min=0.5, delay_max=0.7)
-
-        #### 가격 스크랩 (musinsa) ####
-        # self.update_musinsa_report(id_start=1, batch=40)
-
-
-
-
-    ##### 기능 1 관련 함수 #############################################################################################################################################################################
-    def scrap_stockx_product(self, brand_list=[], delay_min=0.2, delay_max=0.5):
-        print("[SneakersManager] : StockX 상품 스크랩 시작합니다.")
-        tic = time.time()
-
-        if(brand_list == []):
-            page = 1
-            while(1) :
-                sleep_random(delay_min, delay_max)
-                state, data = self.StockXManager.scrap_productlist_page(page=page, brand_list=brand_list)
-                if(state):
-                    for product in data:
-                        data_db = self.DBManager._stockx_select_urlkey(product['urlkey'])
-                        if(len(data_db) > 0):
-                            self.DBManager._stockx_update_productinfo(product=product)
-                        else:
-                            self.DBManager._stockx_insert_productinfo(product=product)
-
-                    toc = time.time()
-                    print("[SneakersManager] : StockX 상품 스크랩 중 (%d page) [%.0fs]" %(page, toc-tic))    
-
-                    page = page + 1
-                else:
-                    break
-
-        for brand in brand_list:
-            page = 1
-            while(page<30) :        ## 언제까지 해야할지 못찾겠네.. 임시로 30페이지
-                sleep_random(delay_min, delay_max)
-                state, data = self.StockXManager.scrap_productlist_page_brand(brand=brand.lower(), page=page)
-                if(state):
-                    for product in data:
-                        data_db = self.DBManager._stockx_select_urlkey(product['urlkey'])
-                        if(len(data_db) > 0):
-                            self.DBManager._stockx_update_productinfo(product=product)
-                        else:
-                            self.DBManager._stockx_insert_productinfo(product=product)
-
-                    toc = time.time()
-                    print("[SneakersManager] : StockX (%s)상품 스크랩 중 (%d page) [%.0fs]" %(brand, page, toc-tic))    
-
-                    page = page + 1
-                else:
-                    break
-
-        toc = time.time()
-        print("[SneakersManager] : StockX 상품 스크랩 완료되었습니다. [%.1fmin]"%((toc-tic)/60))
-
-    def scrap_kream_product(self, brand_list, delay_min=0.2, delay_max=0.5):
-        print("[SneakersManager] : kream 상품 스크랩 시작합니다.")
-        page = 1
-        tic = time.time()
-        while(1) :
-            sleep_random(delay_min, delay_max)
-            state, data = self.KreamManager.scrap_productlist_page(page=page, brand_list=brand_list)
-            if(state):
-                for product in data:
-                    self.DBManager._kream_insert_productinfo(product=product)
-                
-                toc = time.time()
-                print("[SneakersManager] : kream 상품 스크랩 중 (%d page) [%.1fs]" %(page, (toc-tic)/60))
-                
-                page = page + 1
-            else:
-                break
-        
-        toc = time.time()
-        print("[SneakersManager] : Kream 상품 스크랩 완료되었습니다. %.1fmin"%((toc-tic)/60))
-
-    def scrap_stockx_model_no(self, id_start=1, batch=50, delay_min=0.2, delay_max=0.5):
-        print("[SneakersManager] : stockx 모델명 스크랩 시작합니다.")
-        ## 비어있는 것만 찾아서 업데이트 하는 걸로 바꾸자.
-        cnt_total = self.DBManager._table_count_total(table='stockx')
-
-        tic = time.time()
-        while(1):
-            id_end = min(id_start + batch -1, cnt_total)
-            data = self.DBManager._stockx_select_urlkey_batch(id_start=id_start, id_end=id_end)
-
-            for (id, urlkey, model_no) in data:
-                sleep_random(delay_min, delay_max)
-                state, data = self.StockXManager.scrap_model_no(urlkey=urlkey)
-                if(state):
-                    self.DBManager._stockx_update_model_no(model_no=data['model_no'], urlkey=urlkey)
-            
-            toc = time.time()
-            print("[SneakersManager] : stockx 모델명 스크랩 중 (%4d/%4d) [%.0fs]"%(id_end, cnt_total, toc-tic))
-
-            # 처리 끝났으면 while 조건 체크
-            if(id_end == cnt_total):
-                break
-            else:
-                id_start = id_start + batch
-        
-        toc = time.time()
-        print("[SneakersManager] : stockx 모델명 스크랩 완료되었습니다. %.1fmin"%((toc-tic)/60))
-
-    def export_common_product(self):
-        self.ReportManager.export_report_proudct(table='kream')  # sneakers DB는 여기서 임시 레포트만 뽑지, DB 축적은 아래에서 한다.
-        self.ReportManager.export_report_proudct(table='stockx')
-        self.ReportManager.export_report_proudct(table='sneakers')
-
-        data = self.DBManager._fetch_sneakers_product(option_pandas=False)
-        for (brand, model_no, product_name, urlkey) in data:
-            self.DBManager._sneakers_insert_productinfo(brand=brand, model_no=model_no, product_name=product_name, urlkey=urlkey)
-
-    def scrap_stockx_size(self, table, id_start=1, batch=50, delay_min=0.5, delay_max=0.8):
-        print("[SneakersManager] : StockX 사이즈 스크랩 시작합니다.")
-        cnt_total = self.DBManager._table_count_total(table=table)
-
-        tic = time.time()
-        while(1):
-            id_end = min(id_start + batch -1, cnt_total)
-            data_batch = self.DBManager._sneakers_select_all(id_start=id_start, id_end=id_end)
-
-            for (id, brand, model_no, product_name, urlkey) in data_batch:
-                sleep_random(delay_min, delay_max)
-                state, data = self.StockXManager.scrap_size(urlkey=urlkey)
-                if(state):
-                    for item in data:
-                        data_exist = self.DBManager._sneakers_price_select_product(urlkey=urlkey, size_stockx=item['size'])
-                        if(len(data_exist) >0 ):
-                            self.DBManager._sneakers_price_insert_data_with_size(brand=brand, model_no=model_no, product_name=product_name, size=item['size'], urlkey=urlkey, id_stockx=item['id_stockx'])
-            
-            toc = time.time()
-            print("[SneakersManager] : Stockx 사이즈 스크랩 중 (%4d/%4d) [%.1fmin]"%(id_end, cnt_total, (toc-tic)/60))
-            # 처리 끝났으면 while 조건 체크
-            if(id_end == cnt_total):
-                break
-            else:
-                id_start = id_start + batch
-
-        toc = time.time()
-        print("[SneakersManager] : Stockx 사이즈 스크랩 완료되었습니다. [%.1fmin]"%((toc-tic)/60))
-
-    def scrap_stockx_size_with_price(self, table, id_start=1, batch=50, delay_min=0.5, delay_max=0.8):
-        print("[SneakersManager] : StockX 사이즈 스크랩 시작합니다.")
-        cnt_total = self.DBManager._table_count_total(table=table)
-
-        tic = time.time()
-        while(1):
-            id_end = min(id_start + batch -1, cnt_total)
-            data_batch = self.DBManager._stockx_select_all(id_start=id_start, id_end=id_end)
-
-            for (id, brand, model_no, product_name, urlkey) in data_batch:
-                # sleep 안기다리게 모델명으로만 사전 Filtering 하는 코드
-                data_exist = self.DBManager._sneakers_price_select_product_from_only_urlkey(urlkey=urlkey)
-                if(len(data_exist) > 0) :
-                    continue
-
-                sleep_random(delay_min, delay_max)
-                state, data = self.StockXManager.scrap_size(urlkey=urlkey)
-                if(state):
-                    for item in data:
-                        # 모델명&사이즈로 업데이트 여부 확인 코드
-                        data_exist = self.DBManager._sneakers_price_select_product(urlkey=urlkey, size_stockx=item['size'])
-                        if(len(data_exist) == 0 ):
-                            self.DBManager._sneakers_price_insert_data_with_size_and_price(brand=brand, model_no=model_no, product_name=product_name, size=item['size'], urlkey=urlkey, id_stockx=item['id_stockx'], price_buy=item['price_buy'], price_sell=item['price_sell'])
-            
-            toc = time.time()
-            print("[SneakersManager] : Stockx 사이즈 스크랩 중 (%4d/%4d) [%.1fmin]"%(id_end, cnt_total, (toc-tic)/60))
-            # 처리 끝났으면 while 조건 체크
-            if(id_end == cnt_total):
-                break
-            else:
-                id_start = id_start + batch
-
-        toc = time.time()
-        print("[SneakersManager] : Stockx 사이즈 스크랩 완료되었습니다. [%.1fmin]"%((toc-tic)/60))
-
-    def fill_size_estimated_mm(self, id_start=1):
-        print("[SneakersManager] : StockX 사이즈(US) -> 예상 사이즈(mm) 변환 시작합니다.")
-        data = self.DBManager._sneakers_price_select_distinct_urlkey()
-        cnt_total = len(data)
-
-        tic = time.time()
-        for index, urlkey in enumerate(data):
-            if(index<id_start-1):
-                continue
-
-            data = self.DBManager._sneakers_price_select_size_stockx(urlkey=urlkey[0])
-
-            ## 처리
-            for (id, brand, model_no, size_stockx, urlkey) in data:
-                size_estimated_mm = self._convert_size_US2mm(brand=brand, size_US=size_stockx)
-                self.DBManager._sneakers_price_update_size_estimated_mm(brand=brand, model_no=model_no, size_stockx=size_stockx, size_estimated_mm=size_estimated_mm)
-            
-            toc = time.time()
-            print("[SneakersManager] : 예상 사이즈 계산중(%4d/%4d) [%.0fs]"%(index+1, cnt_total, toc-tic))
-
-        toc = time.time()
-        print("[SneakersManager] : 예상 사이즈(mm) 변환 완료되었습니다. [%.1fmin]"%((toc-tic)/60))
-    def fill_size_estimated_mm_null(self, id_start=1, batch=500):
-        print("[SneakersManager] : StockX 사이즈(US) -> 예상 사이즈(mm) 변환 시작합니다.")
-        cnt_total = self.DBManager._table_count_total(table='sneakers_price')
-        tic = time.time()
-
-        while(1):
-            id_end = min(id_start + batch -1, cnt_total)
-            data = self.DBManager._sneakers_price_select_size_estimated_null(id_start=id_start, id_end=id_end)
-
-        
-            for (id, brand, size_stockx) in data:
-                size_estimated_mm = self._convert_size_US2mm(brand=brand, size_US=size_stockx)
-                self.DBManager._sneakers_price_update_size_estimated_mm_where_id(id=id, size_estimated_mm=size_estimated_mm)
-                
-            toc = time.time()
-            print("[SneakersManager] : 예상 사이즈 계산중(%4d/%4d) [%.0fs]"%(id_end, cnt_total, toc-tic))
-
-            # 처리 끝났으면 while 조건 체크
-            if(id_end == cnt_total):
-                break
-            else:
-                id_start = id_start + batch
-
-        toc = time.time()
-        print("[SneakersManager] : 예상 사이즈(mm) 변환 완료되었습니다. [%.1fmin]"%((toc-tic)/60))
-    def _convert_size_US2mm(self, brand, size_US):
-        if(brand == 'nike' or brand == 'jordan'):
+    ### Lv1) 사이즈 변환 ###
+    # input : product
+    # output : product
+    def _convert_size_US2mm(self, product):
+        if(product['brand'] == 'nike' or product['brand'] == 'jordan'):
             LUT = {
                 '2.5':'215',
                 '3':'220',
@@ -481,13 +233,13 @@ class SneakersManager:
                 '3Y':'220',
                 }
             try:
-                size_tmp = size_US.split('/')[0].strip().upper()
-                return LUT[size_tmp]
+                size_tmp = product['size_stockx'].split('/')[0].strip().upper()
+                product['size_estimated_mm'] = LUT[size_tmp]
             except:
-                if(size_US != None):
-                    print("%s : %s"%(brand, size_US))
-                return ''
-        elif(brand == 'adidas' or brand == 'new balance'):
+                if(product['size_stockx'] != None):
+                    print("%s : %s"%(product['brand'], product['size_stockx']))
+                product['size_estimated_mm'] = ''
+        elif(product['brand'] == 'adidas' or product['brand'] == 'new balance'):
             LUT = {
                 '2.5':'205',
                 '3':'210',
@@ -546,12 +298,12 @@ class SneakersManager:
 
                 }
             try:
-                return LUT[size_US]
+                product['size_estimated_mm'] = LUT[product['size_stockx']]
             except:
-                if(size_US != None):
-                    print("%s : %s"%(brand, size_US))
-                return ''
-        elif(brand == 'vans'):
+                if(product['size_stockx'] != None):
+                    print("%s : %s"%(product['brand'], product['size_stockx']))
+                product['size_estimated_mm'] = ''
+        elif(product['brand'] == 'vans'):
             LUT = {
                 '3.5': '215',
                 '4': '220',
@@ -611,244 +363,13 @@ class SneakersManager:
                 '7Y': '255',
             }
             try:
-                return LUT[size_US]
+                product['size_estimated_mm'] = LUT[product['size_stockx']]
             except:
-                if(size_US != None):
-                    print("%s : %s"%(brand, size_US))
-                return ''
-        elif(brand == 'converse'):
-            return None
+                if(product['size_stockx'] != None):
+                    print("%s : %s"%(product['brand'], product['size_stockx']))
+                product['size_estimated_mm'] = ''
+        elif(product['brand'] == 'converse'):
+            product['size_estimated_mm'] = None
         else:
-            print("No Size LUT for brand %s"%(brand))
-            return ''
-        
-    ##
-    def match_kream_size(self, batch=500, id_start=1):
-        print("[SneakersManager] : Kream 사이즈 매칭 시작합니다.")
-        cnt_total = self.DBManager._table_count_total(table='sneakers_price')
-
-        tic = time.time()
-        while(1):
-            id_end = min(id_start + batch -1, cnt_total)
-            data = self.DBManager._sneakers_price_select_size_estimated(id_start=id_start, id_end=id_end)
-
-            for (id, brand, model_no, size_stockx, size_estimated) in data:
-                                
-                size_mm, size_us = self._get_kream_size(brand=brand, model_no=model_no, size_stockx=size_stockx, size_estimated=size_estimated)
-                self.DBManager._sneakers_price_update_size_kream(brand=brand, model_no=model_no, size_stockx=size_stockx, size_estimated_mm=size_estimated, size_mm=size_mm, size_us=size_us)
-            
-            toc = time.time()
-            print("[SneakersManager] : Kream 사이즈 매칭중(%4d/%4d) [%.1fmin]"%(id_end, cnt_total, (toc-tic)/60))
-            # 처리 끝났으면 while 조건 체크
-            if(id_end == cnt_total):
-                break
-            else:
-                id_start = id_start + batch
-
-        toc = time.time()
-        print("[SneakersManager] : Kream 사이즈 매칭 완료되었습니다. [%.0fmin]"%((toc-tic)/60))
-
-    def _get_kream_size(self, brand, model_no, size_stockx, size_estimated):
-        data = self.DBManager._kream_select_size_estimated(brand, model_no, size_estimated)
-
-        try:
-            size_mm_set = data[0][0]
-            size_us_set = data[0][1]
-            for (size_mm, size_us) in data:
-                if(size_stockx in size_us):
-                    size_mm_set = size_mm
-                    size_us_set = size_us
-        except:
-            size_mm_set = ''
-            size_us_set = ''
-
-        return size_mm_set, size_us_set
-
-    # Kream에서 model_no, id_kream 뽑은다음에 무지성 업데이트
-    def match_id_kream(self):
-        print("[SneakersManager] : id_kream 매칭 시작합니다.")
-        data = self.DBManager._kream_select_distict_id_kream_model_no()
-        cnt_total = len(data)
-
-        tic = time.time()
-        index = 1
-        for (id_kream, model_no) in data:
-            self.DBManager._sneakers_price_update_id_kream(model_no=model_no, id_kream=id_kream)
-
-            if(index % 100 == 0):
-                toc = time.time()
-                print("[SneakersManager] : id_kream 매칭중(%4d/%4d) [%.1fmin]"%(index, cnt_total, (toc-tic)/60))
-            index = index+1
-
-        toc = time.time()
-        print("[SneakersManager] : id_kream 매칭 완료하였습니다. [%.1fmin]"%((toc-tic)/60))
-
-    # 신규 상품에 대해, Kream에 상품 있는지 확인 후, 업데이트
-    def match_id_kream(self):
-            #1. sneakers_price > id_kream 이 없는 model_no 를 뽑는다.
-            #2. 해당 model_no가 kream에 있는지 찾고, 있으면 id_kream을 가져온다.
-            # 3. sneakers_price 에서 그 model_no에 해당하는 row들의 id_kream을 입력한다.
-            print("[SneakersManager] : id_kream 매칭 시작합니다.")
-            data = self.DBManager._sneakers_price_select_model_no_id_kream_null()
-            cnt_total = len(data)
-
-            tic = time.time()
-            for (model_no) in data:
-                data_id_kream = self.DBManager._kream_select_distict_id_kream_where_model_no()
-                if(len(data_id_kream) >0):
-                    self.DBManager._sneakers_price_update_id_kream(model_no=model_no, id_kream=data_id_kream)
-
-
-
-
-    ##### Musinsa 관련 함수 #############################################################################################################################################################################
-    def scrap_musinsa_id_musinsa(self, brand_list, delay_min=0.6, delay_max=0.8):
-        print("[SneakersManager] : Musinsa 상품 스크랩 시작합니다.")
-
-        page = 1
-        tic = time.time()
-        while(1) :
-            sleep_random(delay_min, delay_max)
-            state, data = self.MusinsaManager.scrap_id_musinsa_page(page=page, brand_list=brand_list)
-            if(state):
-                for product in data:
-                    self.DBManager._musinsa_insert_id_musinsa(product=product)
-
-                toc = time.time()
-                print("[SneakersManager] : Musinsa id 스크랩 중 (%d page) [%.0fs]" %(page, toc-tic))    
-
-                page = page + 1
-            else:
-                break
-
-        toc = time.time()
-        print("[SneakersManager] : Musinsa id 스크랩 완료되었습니다. [%.1fmin]"%((toc-tic)/60))
-    
-    def scrap_musinsa_price(self, id_start=1, batch=50, delay_min=0.6, delay_max=0.8):
-        print("[SneakersManager] : musinsa 상품정보 및 가격 스크랩 시작합니다.")
-        cnt_total = self.DBManager._table_count_total(table='musinsa')
-
-        tic = time.time()
-        while(1):
-            id_end = min(id_start + batch -1, cnt_total)
-            data = self.DBManager._musinsa_select_id_musinsa(id_start=id_start, id_end=id_end)
-
-            for (id, id_musinsa) in data:
-                sleep_random(delay_min, delay_max)
-                state, data = self.MusinsaManager.scrap_price(id_musinsa=id_musinsa)
-                if(state):
-                    self.DBManager._musinsa_update_product(product=data, id_musinsa=id_musinsa)
-            
-            toc = time.time()
-            print("[SneakersManager] : musinsa 상품정보 및 가격 스크랩 중 (%4d/%4d) [%.0fs]"%(id_end, cnt_total, toc-tic))
-
-            # 처리 끝났으면 while 조건 체크
-            if(id_end == cnt_total):
-                break
-            else:
-                id_start = id_start + batch
-        
-        toc = time.time()
-        print("[SneakersManager] : musinsa 스크랩 완료되었습니다. %.1fmin"%((toc-tic)/60))
-
-    def update_musinsa_report(self, id_start=1, batch=40):
-        print("[SneakersManager] : musinsa 가격 정보 레포트 업데이트 시작합니다.")
-        cnt_total = self.DBManager._table_count_total(table='musinsa')
-
-        tic = time.time()
-        while(1):
-            id_end = min(id_start + batch -1, cnt_total)
-            data = self.DBManager._musinsa_select_price(id_start=id_start, id_end=id_end)
-
-            for (id, model_no, id_musinsa, price_sale, price_discount) in data:
-                self.DBManager._sneakers_price_update_musinsa_price(model_no=model_no, price_sale_musinsa=price_sale, price_discount_musinsa=price_discount, id_musinsa=id_musinsa)
-            
-            toc = time.time()
-            print("[SneakersManager] : musinsa 상품정보 및 가격 스크랩 중 (%4d/%4d) [%.0fs]"%(id_end, cnt_total, toc-tic))
-
-            # 처리 끝났으면 while 조건 체크
-            if(id_end == cnt_total):
-                break
-            else:
-                id_start = id_start + batch
-        
-        toc = time.time()
-        print("[SneakersManager] : musinsa 스크랩 완료되었습니다. %.1fmin"%((toc-tic)/60))
-        
-
-
-
-    ##### 임시
-    def export_common_product_musinsa_stockx(self):
-        data = self.DBManager._fetch_musinsa_stockx_product(option_pandas=False)
-        for (brand, model_no, product_name, urlkey) in data:
-            self.DBManager._sneakers_insert_productinfo(brand=brand, model_no=model_no, product_name=product_name, urlkey=urlkey)
-
-    def update_sneakers_price_model_no(self, id_start=1, batch=200):
-        # 1. stockx에서 batch 단위로 urlkey, model_no 뽑는다.
-        # 2. urlkey 매칭
-        # 3. model_no 비어있으면 업데이트
-        print("[SneakersManager] : model_no 업데이트 시작합니다.")
-        cnt_total = self.DBManager._table_count_total(table='stockx')
-
-        tic = time.time()
-        while(1):
-            id_end = min(id_start + batch -1, cnt_total)
-            data = self.DBManager._stockx_select_urlkey_NULL_batch(id_start=id_start, id_end=id_end)
-
-            for (id, urlkey, model_no) in data:
-                # 매칭 없이 걍 업데이트 해버릴까?
-                self.DBManager._sneakers_price_update_model_no_from_urlkey(model_no=model_no, urlkey=urlkey)
-
-            toc = time.time()
-            print("[SneakersManager] : model_no 업데이트중(%4d/%4d) [%.1fmin]"%(id_end, cnt_total, (toc-tic)/60))
-            # 처리 끝났으면 while 조건 체크
-            if(id_end == cnt_total):
-                break
-            else:
-                id_start = id_start + batch
-
-        toc = time.time()
-        print("[SneakersManager] : model_no 업데이트 완료되었습니다. [%.0fmin]"%((toc-tic)/60))
-
-
-    def scrap_kream_price(self, id_start=1, delay_min = 0.4, delay_max=0.5):
-        data = self.DBManager._sneakers_price_select_distinct_urlkey()
-        cnt_total = len(data)
-
-        tic = time.time()
-        for index, urlkey in enumerate(data):
-            if(index<id_start-1):
-                continue
-
-            # 3. 사이즈 별로
-            data_batch = self.DBManager._sneakers_price_select_all_in_urlkey(urlkey=urlkey[0])
-            for item in data_batch:
-
-                if(item['size_kream_mm'] == '' or item['id_kream'] == None):
-                    continue
-                sleep_random(delay_min, delay_max)
-                state_kream, data_kream = self.KreamManager.scrap_price(id_kream=item['id_kream'], size_mm=item['size_kream_mm'], size_us=item['size_kream_us'])
-                if(state_kream):
-                    self.DBManager._sneakers_price_update_price_kream(id_kream=item['id_kream'], size_kream_mm=item['size_kream_mm'], size_kream_us=item['size_kream_us'], price_buy=data_kream['price_buy'], price_sell=data_kream['price_sell'], price_recent=data_kream['price_recent'])
-
-            toc = time.time()
-            print("[SneakersManager] : Kream 가격 스크랩 완료(%s) (%d/%d) [%.1fmin]"%(urlkey[0], index+1, cnt_total, (toc-tic)/60))
-    ## stockx 가격 scrap 만들자.
-
-
-if __name__ == '__main__':
-    SneakersManager = SneakersManager()
-    
-    # SneakersManager.scrap_product()
-#
-    # SneakersManager.scrap_price(id_start=317, delay_min=0.8, delay_max=1.0)
-
-    # SneakersManager.export_report_price()
-
-
-    # SneakersManager.scrap_musinsa_product()
-
-    SneakersManager.tmp()
-
-    # SneakersManager.export_report_price()
+            print("No Size LUT for brand %s"%(product['brand']))
+            product['size_estimated_mm'] = ''
