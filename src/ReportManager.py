@@ -33,7 +33,7 @@ class ReportManager:
     #######################################################################################################################################
     def Export_table(self, table):
         if(table == 'sneakers_price'):
-            pandas_price = self.DBManager.table_fetch(table=table, option_pandas=True)
+            pandas_price = self.DBManager.sneakers_price_fetch_product_report(option_pandas=True)
             filename = 'report\[%s][sneakers_price].csv'%(self.date)
             pandas_price.to_csv(filename, index=False)
         elif(table == 'stockx'):

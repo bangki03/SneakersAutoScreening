@@ -5,9 +5,9 @@ from bs4 import BeautifulSoup
 
 class MusinsaManager:
     def __init__(self):
-        self.brand_list = ['adidas', 'vans', 'converse']
-        self.delay_min = 0.2
-        self.delay_max = 0.4
+        self.brand_list = ['adidas', 'vans', 'converse', 'newbalance']
+        self.delay_min = 0.1
+        self.delay_max = 0.3
         pass
 
     def __setManagers__(self, SneakersManager, StockXManager, KreamManager, DBManager, ReportManager):
@@ -43,7 +43,7 @@ class MusinsaManager:
             print("[MusinsaManager] : 신규 상품 %d개 등록합니다."%(len(data_filtered)))
 
             for item in data_filtered:
-                self.DBManager.sneakers_price_update_product(market='musinsa', product=item)
+                self.DBManager.sneakers_price_update_product(market='musinsa', query_type='UPDATE', product=item)
 
             print("[MusinsaManager] : 상품 등록 (to sneakers_price) 완료하였습니다.")
         else:

@@ -5,8 +5,8 @@ import time
 
 class KreamManager:
     def __init__(self):
-        self.delay_min = 0.3
-        self.delay_max = 0.5
+        self.delay_min = 0.2
+        self.delay_max = 0.3
         self.brand_list = ['Nike', 'Jordan', 'Adidas', 'New Balance', 'Vans', 'Converse']
         # self.time_last_request = time.time()
         pass
@@ -32,32 +32,38 @@ class KreamManager:
             print("[KreamManager] : 상품 등록 (to kream) 완료하였습니다.")
 
         elif(table=='sneakers_price'):
-            # kream에서 registred False 인 애들 model_no 불러와서,
-            # sneakers_price에서 model_no는 있는데, id_kream=NULL 인 애들만 먼저 필터링
-
-            # for 
-            # sneakers_price > model_no 있는데, ID_kream Null 인 애들 불러와서
-                # for
-                # kream > model_no, ID_kream, size_estimated 인 data 가져와서,
-                # size_kream_mm, size_kream_us 업데이트 치자.
-            # id_kream 업데이트 치고,
+            # kream에서 registred False 인 (model_no, id_kream) 불러와서,
+            # for
+            # 1) INSERT 이면, kream에서 상품 가져와서, size_estimated_us 만들고, INSERT
+            # 2) UPDATE 이면, sneakers_price에서 stockx 상품 가져와서, 맞는 kream 사이즈 찾아서 UPDATE
+            # 3) PASS 이면, 이미 등록되었으니까 아무것도 안한다.
 
             tic = time.time()
             data = self.DBManager.kream_fetch_product()
             print("[KreamManager] : 신규 상품 %d개 sneakers_price 등록 검토합니다."%(len(data)))
             for index, item in enumerate(data):
-                if(self.DBManager.sneakers_price_check_product_need_update(market='kream', product=item)):
+
+                if(self.DBManager.sneakers_price_check_product_need_update(market='kream', product=item) == 'UPDATE'):
                     data_sneakers_price = self.DBManager.sneakers_price_fetch_product(product=item)
                     for item_sneakers_price in data_sneakers_price:
                         data_kream = self.DBManager.kream_fetch_product_size(product=item_sneakers_price)
                         if(len(data_kream) >0):
                             item_sneakers_price.update([('size_kream_mm', data_kream[0]['size_kream_mm']), ('size_kream_us', data_kream[0]['size_kream_us'])])
                             # item_sneakers_price.update(data_kream[0])
-                            self.DBManager.sneakers_price_update_product(market='kream', product=item_sneakers_price)
+                            self.DBManager.sneakers_price_update_product(market='kream', query_type='UPDATE', product=item_sneakers_price)
                     self.DBManager.sneakers_price_update_product_id_kream(product=item)
                     self.DBManager.kream_update_registered(product=item)
                     toc = time.time()
-                    print("[KreamManager] : (%d/%d) [%.1fmin] - [model_no: %s, id_kream: %s] - 등록 완료"%(index+1, len(data), (toc-tic)/60, item['model_no'], item['id_kream']))                
+                    print("[KreamManager] : (%d/%d) [%.1fmin] - [model_no: %s, id_kream: %s] - 업데이트 완료"%(index+1, len(data), (toc-tic)/60, item['model_no'], item['id_kream']))                
+
+                elif(self.DBManager.sneakers_price_check_product_need_update(market='kream', product=item) == 'INSERT'):
+                    data_kream = self.DBManager.kream_fetch_product_id_kream(id_kream=item['id_kream'])
+                    for item_kream in data_kream:
+                        self.DBManager.sneakers_price_update_product(market='kream', query_type='INSERT', product=item_kream)
+                    self.DBManager.kream_update_registered(product=item)
+                    toc = time.time()
+                    print("[KreamManager] : (%d/%d) [%.1fmin] - [model_no: %s, id_kream: %s] - 신규등록 완료"%(index+1, len(data), (toc-tic)/60, item['model_no'], item['id_kream']))                
+
                 else:
                     print("[KreamManager] : (%d/%d) [model_no: %s, id_kream: %s] - pass"%(index+1, len(data), item['model_no'], item['id_kream']))                
             print("[KreamManager] : 상품 등록 (to sneakers_price) 완료하였습니다.")                
@@ -75,6 +81,9 @@ class KreamManager:
                 continue
 
             data = self.DBManager.sneakers_price_fetch_product_id_kream(id_kream=item_id_kream['id_kream'])
+            if(data[0]['id_musinsa'] == None):
+                continue
+
             for item in data:
                 state = self.scrap_price(item)
                 if(state):
@@ -255,6 +264,9 @@ class KreamManager:
         # product['has_immediate_delivery_item'] = False
 
         return product
+
+
+
 
 
     #######################################################################################################################################

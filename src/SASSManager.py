@@ -39,8 +39,9 @@ class SASSManager:
     # 동작1. 상품 업데이트 (전체)
     def _update_product_all(self):
         # self._update_product_stockx()
-        self._update_product_musinsa()
-        self._update_product_kream()
+        # self._update_product_musinsa()
+        # self._update_product_kream()
+        pass
         
 
     # 동작1-1. 상품 업데이트 (sneakers)
@@ -49,7 +50,8 @@ class SASSManager:
 
     # 동작1-2. 상품 업데이트 (stockx)
     def _update_product_stockx(self):
-        self.StockXManager.update_product()
+        # self.StockXManager.update_product(table='stockx')
+        self.StockXManager.update_product(table='sneakers_price')
         
     # 동작1-3. 상품 업데이트 (kream)
     def _update_product_kream(self):
@@ -92,15 +94,16 @@ if __name__ == '__main__':
     ### 상품 업데이트 ###
     # SASSManager._update_product_sneakers()      # 검증 완료
     # SASSManager._update_product_musinsa()       # to_musinsa / musinsa to sneakers_price 둘 다 검증 완료.
-    # SASSManager._update_product_kream()     
+    # SASSManager._update_product_kream()
+    # SASSManager._update_product_stockx()     
 
     
     ### 가격 업데이트 ###
-    # SASSManager._update_price_all(id_start=187)  
-    SASSManager._update_price_stockx(id_start=3447)
-    # SASSManager._update_price_kream(id_start=1)
-    # SASSManager._update_price_musinsa(id_start=1)
+    SASSManager._update_price_all(id_start=501)  
+    # SASSManager._update_price_stockx(id_start=3447)
+    # SASSManager._update_price_kream(id_start=2412)
+    # SASSManager._update_price_musinsa(id_start=55)
 
 
     ### 레포트 ###
-    SASSManager._report_sneakers_price()
+    # SASSManager._report_sneakers_price()

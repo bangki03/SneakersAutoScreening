@@ -5,12 +5,12 @@ import time
 import brotli
 
 class StockXManager:
-    def __init__(self, delay_min=0.2, delay_max=0.3):
+    def __init__(self, delay_min=0.1, delay_max=0.2):
         self.brand_list = ['Nike', 'Jordan', 'Adidas', 'New Balance', 'Vans', 'Converse',]
         self.delay_min = delay_min
         self.delay_max = delay_max
         self.last_page = 25
-        self.auth_token = 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5USkNNVVEyUmpBd1JUQXdORFk0TURRelF6SkZRelV4TWpneU5qSTNNRFJGTkRZME0wSTNSQSJ9.eyJodHRwczovL3N0b2NreC5jb20vY3VzdG9tZXJfdXVpZCI6ImJmOGQzMDIzLTljNGItMTFlZC05ZjBjLTEyNDczOGI1MGUxMiIsImh0dHBzOi8vc3RvY2t4LmNvbS9nYV9ldmVudCI6IkxvZ2dlZCBJbiIsImh0dHBzOi8vc3RvY2t4LmNvbS9lbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaXNzIjoiaHR0cHM6Ly9hY2NvdW50cy5zdG9ja3guY29tLyIsInN1YiI6ImF1dGgwfDYzZDA3ZjUxNzhkMTBiZTlkZjM1OThhZCIsImF1ZCI6ImdhdGV3YXkuc3RvY2t4LmNvbSIsImlhdCI6MTY3NzI5MjI2MiwiZXhwIjoxNjc3MzM1NDYyLCJhenAiOiJPVnhydDRWSnFUeDdMSVVLZDY2MVcwRHVWTXBjRkJ5RCIsInNjb3BlIjoib2ZmbGluZV9hY2Nlc3MifQ.WDP4J50jexco82770I6RFgEbGvxCiY2JJT1J8-LAJP7wmRf24KWUg7lARVUgE07RR_S-ZQ_xJXSNQkpLynFb8FjV4oNVRw-cQmuqN95ypOfPk8WPzByTNPlKJQLxBcVuRyyZik5dHcKInKVtTmTnnlZW7I_bwuvlwOdR9MdfbYYfxVOYZpSJiHUHG--laFZXYhgnJOmovfvKTX1VkIpUEslr9AZj1-kdhlkRnfHkI0R-gVRCqTcB4nsnhyPrYTdPS5DnWCBymqFXe41Q3nXlkTTKc8Di_zeKssQLgVJ5V6zi1vyO-Hg7WgKo-NkyATxOVSL5fqKpyVzVYDrCcX5y5w'
+        self.auth_token = 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik5USkNNVVEyUmpBd1JUQXdORFk0TURRelF6SkZRelV4TWpneU5qSTNNRFJGTkRZME0wSTNSQSJ9.eyJodHRwczovL3N0b2NreC5jb20vY3VzdG9tZXJfdXVpZCI6ImJmOGQzMDIzLTljNGItMTFlZC05ZjBjLTEyNDczOGI1MGUxMiIsImh0dHBzOi8vc3RvY2t4LmNvbS9nYV9ldmVudCI6IkxvZ2dlZCBJbiIsImh0dHBzOi8vc3RvY2t4LmNvbS9lbWFpbF92ZXJpZmllZCI6dHJ1ZSwiaXNzIjoiaHR0cHM6Ly9hY2NvdW50cy5zdG9ja3guY29tLyIsInN1YiI6ImF1dGgwfDYzZDA3ZjUxNzhkMTBiZTlkZjM1OThhZCIsImF1ZCI6ImdhdGV3YXkuc3RvY2t4LmNvbSIsImlhdCI6MTY3NzM3NTM2NywiZXhwIjoxNjc3NDE4NTY3LCJhenAiOiJPVnhydDRWSnFUeDdMSVVLZDY2MVcwRHVWTXBjRkJ5RCIsInNjb3BlIjoib2ZmbGluZV9hY2Nlc3MifQ.Wc-ULfqxC7TsxFYdfaUYbFUBhsjiUE8m-SXlEsEMaXCqly6n4j4RFMdY30pNc5-F8gAD2Zlh629tbbtgWuXANJhyy5nrzQyZnRWcB2edMDNwfw5vQvXTJsqIe5V3r2bYztyrpEjLz9AsKr2jIWTdok0d9psmZ6YU-Nco7Z2M8YQE7PI5zWySHR2Mb7eQlxovF9D0nnxqLXy5RhQFyK1YtWS2G3uIcErXgB5BeO4sRoHKSY4NrjA8bnaVKRe9IfKtB0oiWfiT-j9o1EgtQSAUAkLDjQKygIzg29zknJzoIgcLAQHom4tgfgypFNGXtdnEca8QCBVarsVpsj2UHunKEg'
         pass
 
     def __setManagers__(self, SneakersManager, KreamManager, MusinsaManager, DBManager, ReportManager):
@@ -21,18 +21,50 @@ class StockXManager:
         self.ReportManager = ReportManager
 
     ### 동작 1. 상품 업데이트
-    def update_product(self):
-        print("[StockXManager] : 상품 스크랩 시작합니다.")
+    def update_product(self, table):
+        if(table == 'stockx'):
+            print("[StockXManager] : 상품 스크랩 시작합니다.")
+            data = self.scrap_product_list()
 
-        data = self.scrap_product_list()
+            data_filtered = [item for item in data if not self.DBManager.stockx_check_product_exist(item)]
+            
+            print("[StockXManager] : 신규 상품 %d개 등록합니다."%(len(data_filtered)))
+            for item in data_filtered:
+                self.DBManager.stockx_update_product(item)
 
-        data_filtered = [item for item in data if not self.DBManager.stockx_check_product_exist(item)]
-        
-        print("[StockXManager] : 신규 상품 %d개 등록합니다."%(len(data_filtered)))
-        for item in data_filtered:
-            self.DBManager.stockx_update_product(item)
+            print("[StockXManager] : 상품 등록 완료하였습니다.")
+        elif(table == 'sneakers_price'):
+            data = self.DBManager.stockx_fetch_product()
+            print("[StockXManager] : 상품 %d개 sneakers_price 등록 검토합니다."%(len(data)))
 
-        print("[StockXManager] : 상품 등록 완료하였습니다.")
+            tic = time.time()
+            for index, item in enumerate(data):
+                if(self.DBManager.sneakers_price_check_product_need_update(market='stockx', product=item) == 'INSERT'):
+                    sleep_random(0.2, 0.5)
+                    state, data_size = self.scrap_size(urlkey=item['urlkey'])
+
+                    if(state):
+                        for item_size in data_size:
+                            item.update(item_size)
+                            self.SneakersManager._convert_size_US2mm(item)
+                            self.DBManager.sneakers_price_update_product(market='stockx', query_type='INSERT', product=item)
+                            toc=time.time()
+                        print("[SneakersManager] : 사이즈 스크랩 및 상품 등록 중 (%d/%d) [%.1fmin]" %(index+1, len(data), (toc-tic)/60))  
+
+                elif(self.DBManager.sneakers_price_check_product_need_update(market='stockx', product=item) == 'UPDATE'):
+                    sleep_random(0.2, 0.5)
+                    state, data_size = self.scrap_size(urlkey=item['urlkey'])
+
+                    if(state):
+                        for item_size in data_size:
+                            ## 여기서 사이즈 매칭시키자.
+                            self.SneakersManager._convert_size_US2mm(item_size)
+                            item_size.update(item)
+                            self.DBManager.sneakers_price_update_product(market='stockx', query_type='UPDATE', product=item_size)
+                            toc=time.time()
+                        print("[SneakersManager] : 사이즈 스크랩 및 상품 등록 중 (%d/%d) [%.1fmin]" %(index+1, len(data), (toc-tic)/60))  
+
+            pass
 
     
     ### 동작 2. 가격 업데이트

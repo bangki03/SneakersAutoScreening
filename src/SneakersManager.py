@@ -20,7 +20,7 @@ class SneakersManager:
 
 
     ### 동작 1. 상품 업데이트
-    def update_product(self, batch=200):
+    def update_product(self):
         print("[SneakersManager] : stockx 상품 등록 시작합니다.")
         data = self.DBManager.stockx_fetch_product()
         
@@ -37,7 +37,7 @@ class SneakersManager:
                 for item_size in data_size:
                     item.update(item_size)
                     self._convert_size_US2mm(item)
-                    self.DBManager.sneakers_price_update_product(market='stockx', product=item)
+                    self.DBManager.sneakers_price_update_product(market='stockx', query_type='INSERT', product=item)
                     toc=time.time()
                 print("[SneakersManager] : 사이즈 스크랩 및 상품 등록 중 (%d/%d) [%.1fmin]" %(index+1, len(data_filtered), (toc-tic)/60))    
 
@@ -45,43 +45,92 @@ class SneakersManager:
         print("[SneakersManager] : stockx 상품 등록 완료하였습니다.")
 
     ### 동작 2. 가격 업데이트
-    def update_price(self, id_start=1, batch=200):
+    def update_price(self, id_start=1):
         print("[SneakersManager] : 가격 scrap 시작합니다.")
 
-        list_urlkey = self.DBManager.sneakers_price_fetch_urlkey()
-        cnt_total = len(list_urlkey)
+        list_model_no = self.DBManager.sneakers_price_fetch_model_no()
+        cnt_total = len(list_model_no)
 
         tic=time.time()
-        for index, product in enumerate(list_urlkey):
+        for index, product in enumerate(list_model_no):
             if(index<id_start-1):
                 continue
 
-            data = self.DBManager.sneakers_price_fetch_product_urlkey(urlkey=product['urlkey'])
+            data = self.DBManager.sneakers_price_fetch_product_model_no(model_no=product['model_no'])
             registered_at = self.check_market_registered(data)
 
-            if(registered_at['kream']):
-                for item in data:
-                    state = self.KreamManager.scrap_price(item)
-                    if(state):
-                        self.DBManager.sneakers_price_update_price(market='kream', product=item)
+            if(registered_at['stockx'] and registered_at['kream'] and registered_at['musinsa']):
+                self.update_price_market(market='stockx', data=data)
+                self.update_price_market(market='kream', data=data)
+                self.update_price_market(market='musinsa', data=data)
 
-            if(registered_at['musinsa']):
-                id_musinsa = data[0]['id_musinsa']
-                state, data_musinsa = self.MusinsaManager.scrap_price(id_musinsa=id_musinsa)
-                if(state):
-                    self.DBManager.sneakers_price_update_price(market='musinsa', product=data_musinsa)
+                toc=time.time()
+                print("[SneakersManager] : (%s-%s)가격 스크랩 완료(stockx, kream, musinsa) (%d/%d) [%.1fmin]"%(product['brand'], product['model_no'], index+1, cnt_total, (toc-tic)/60))
+            
+            elif(registered_at['stockx'] and registered_at['kream']):
+                self.update_price_market(market='stockx', data=data)
+                self.update_price_market(market='kream', data=data)
 
-            if(registered_at['stockx']):
-                state, data_stockx = self.StockXManager.scrap_price(urlkey=product['urlkey'])
-                if(state):
-                    for item_stockx in data_stockx:
-                        item_stockx['urlkey'] = product['urlkey']
-                        self.DBManager.sneakers_price_update_price(market='stockx', product=item_stockx)
-                    
-            toc=time.time()
-            print("[SneakersManager] : (%s)가격 스크랩 완료(%d/%d) [%.1fmin]"%(item['urlkey'], index+1, cnt_total, (toc-tic)/60))
+                toc=time.time()
+                print("[SneakersManager] : (%s-%s)가격 스크랩 완료(stockx, kream) (%d/%d) [%.1fmin]"%(product['brand'], product['model_no'], index+1, cnt_total, (toc-tic)/60))
+            
+            elif(registered_at['kream'] and registered_at['musinsa']):
+                self.update_price_market(market='kream', data=data)
+                self.update_price_market(market='musinsa', data=data)
+
+                toc=time.time()
+                print("[SneakersManager] : (%s-%s)가격 스크랩 완료(kream, musinsa) (%d/%d) [%.1fmin]"%(product['brand'], product['model_no'], index+1, cnt_total, (toc-tic)/60))
+
+            elif(registered_at['stockx'] and registered_at['musinsa']):
+                self.update_price_market(market='stockx', data=data)
+                self.update_price_market(market='musinsa', data=data)
+
+                toc=time.time()
+                print("[SneakersManager] : (%s-%s)가격 스크랩 완료(stockx, musinsa) (%d/%d) [%.1fmin]"%(product['brand'], product['model_no'], index+1, cnt_total, (toc-tic)/60))
+
+            # elif(registered_at['stockx']):
+            #     self.update_price_market(market='stockx', data=data)
+
+            #     toc=time.time()
+            #     print("[SneakersManager] : (%s-%s)가격 스크랩 완료(stockx) (%d/%d) [%.1fmin]"%(product['brand'], product['model_no'], index+1, cnt_total, (toc-tic)/60))
+
+            # elif(registered_at['kream']):
+            #     self.update_price_market(market='kream', data=data)
+
+            #     toc=time.time()
+            #     print("[SneakersManager] : (%s-%s)가격 스크랩 완료(kream) (%d/%d) [%.1fmin]"%(product['brand'], product['model_no'], index+1, cnt_total, (toc-tic)/60))
+
+            # elif(registered_at['musinsa']):
+            #     self.update_price_market(market='musinsa', data=data)
+
+            #     toc=time.time()
+            #     print("[SneakersManager] : (%s-%s)가격 스크랩 완료(musinsa) (%d/%d) [%.1fmin]"%(product['brand'], product['model_no'], index+1, cnt_total, (toc-tic)/60))
+
+            else:
+                toc=time.time()
+                print("[SneakersManager] : (%s-%s)가격 스크랩 패스(No Market) (%d/%d) [%.1fmin]"%(product['brand'], product['model_no'], index+1, cnt_total, (toc-tic)/60))
         
         print("[SneakersManager] : 가격 등록 완료하였습니다.")
+
+
+    def update_price_market(self, market, data):
+        if(market=='stockx'):
+            state, data_stockx = self.StockXManager.scrap_price(urlkey=data[0]['urlkey'])
+            if(state):
+                for item_stockx in data_stockx:
+                    item_stockx['urlkey'] = data[0]['urlkey']
+                    self.DBManager.sneakers_price_update_price(market='stockx', product=item_stockx)
+        elif(market=='kream'):
+            for item in data:
+                state = self.KreamManager.scrap_price(item)
+                if(state):
+                    self.DBManager.sneakers_price_update_price(market='kream', product=item)
+        elif(market=='musinsa'):
+            id_musinsa = data[0]['id_musinsa']
+            state, data_musinsa = self.MusinsaManager.scrap_price(id_musinsa=id_musinsa)
+            if(state):
+                self.DBManager.sneakers_price_update_price(market='musinsa', product=data_musinsa)
+
 
 
     def check_market_registered(self, data):
@@ -94,7 +143,10 @@ class SneakersManager:
             registered_at['kream'] = True
         if(data[0]['id_musinsa'] != None):
             registered_at['musinsa'] = True
-        registered_at['stockx'] = registered_at['kream'] or registered_at['musinsa']
+        if(data[0]['urlkey'] != None):
+            registered_at['stockx'] = True
+
+        
 
         return registered_at
         
@@ -373,3 +425,222 @@ class SneakersManager:
         else:
             print("No Size LUT for brand %s"%(product['brand']))
             product['size_estimated_mm'] = ''
+
+
+size_LUT = [
+    {'brand': 'nike',
+     'LUT': [
+        {'mm': '170', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'',      'US_K' :'', 'US_C' :'10.5C'},
+        {'mm': '175', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'',      'US_K' :'', 'US_C' :'11C'},
+        {'mm': '180', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'',      'US_K' :'', 'US_C' :'11.5C'},
+        {'mm': '185', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'',      'US_K' :'', 'US_C' :'12C'},
+        {'mm': '190', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'',      'US_K' :'', 'US_C' :'12.5C'},
+        {'mm': '195', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'',      'US_K' :'', 'US_C' :'13C'},
+        {'mm': '195', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'',      'US_K' :'', 'US_C' :'13.5C'},
+        {'mm': '200', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'1Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '205', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'1.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '210', 'US': '',     'US_M': '',     'US_W': '4W',   'US_Y':'2Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '215', 'US': '2.5',  'US_M': '2.5M', 'US_W': '4.5W', 'US_Y':'2.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '220', 'US': '3',    'US_M': '3M',   'US_W': '5W',   'US_Y':'3Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '225', 'US': '3.5',  'US_M': '3.5M', 'US_W': '5.5W', 'US_Y':'3.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '230', 'US': '4',    'US_M': '4M',   'US_W': '6W',   'US_Y':'4Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '235', 'US': '4.5',  'US_M': '4.5M', 'US_W': '6.5W', 'US_Y':'4.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '235', 'US': '5',    'US_M': '5M',   'US_W': '6.5W', 'US_Y':'5Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '240', 'US': '5.5',  'US_M': '5.5M', 'US_W': '7W',   'US_Y':'5.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '240', 'US': '6',    'US_M': '6M',   'US_W': '7W',   'US_Y':'6Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '245', 'US': '6.5',  'US_M': '6.5M', 'US_W': '7.5W', 'US_Y':'6.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '250', 'US': '7',    'US_M': '7M',   'US_W': '8W',   'US_Y':'7Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '255', 'US': '7.5',  'US_M': '7.5M', 'US_W': '8.5W', 'US_Y':'7.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '260', 'US': '8',    'US_M': '8M',   'US_W': '9W',   'US_Y':'8Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '265', 'US': '8.5',  'US_M': '8.5M', 'US_W': '9.5W', 'US_Y':'8.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '270', 'US': '9',    'US_M': '9M',   'US_W': '10W',  'US_Y':'9Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '275', 'US': '9.5',  'US_M': '9.5M', 'US_W': '10.5W','US_Y':'9.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '280', 'US': '10',   'US_M': '10M',  'US_W': '11W',  'US_Y':'10Y',   'US_K' :'', 'US_C' :''},
+        {'mm': '285', 'US': '10.5', 'US_M': '10.5M','US_W': '11.5W','US_Y':'10.5Y', 'US_K' :'', 'US_C' :''},
+        {'mm': '290', 'US': '11',   'US_M': '11M',  'US_W': '12W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '295', 'US': '11.5', 'US_M': '11.5M','US_W': '12.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '300', 'US': '12',   'US_M': '12M',  'US_W': '13W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '305', 'US': '12.5', 'US_M': '12.5M','US_W': '13.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '310', 'US': '13',   'US_M': '13M',  'US_W': '14W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '315', 'US': '13.5', 'US_M': '13.5M','US_W': '14.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '320', 'US': '14',   'US_M': '14M',  'US_W': '15W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '325', 'US': '14.5', 'US_M': '14.5M','US_W': '15.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '330', 'US': '15',   'US_M': '15M',  'US_W': '16W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '335', 'US': '15.5', 'US_M': '15.5M','US_W': '16.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '340', 'US': '16',   'US_M': '16M',  'US_W': '17W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '345', 'US': '16.5', 'US_M': '16.5M','US_W': '17.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '350', 'US': '17',   'US_M': '17M',  'US_W': '18W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '355', 'US': '17.5', 'US_M': '17.5M','US_W': '18.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '360', 'US': '18',   'US_M': '18M',  'US_W': '19W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '365', 'US': '18.5', 'US_M': '18.5M','US_W': '19.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '370', 'US': '19',   'US_M': '19M',  'US_W': '20W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '375', 'US': '19.5', 'US_M': '19.5M','US_W': '20.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '380', 'US': '20',   'US_M': '20M',  'US_W': '21W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '385', 'US': '20.5', 'US_M': '20.5M','US_W': '21.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '390', 'US': '21',   'US_M': '21M',  'US_W': '22W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '395', 'US': '21.5', 'US_M': '21.5M','US_W': '22.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '400', 'US': '22',   'US_M': '22M',  'US_W': '23W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+     ]},
+    {'brand': 'jordan',
+     'LUT': [
+        {'mm': '170', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'',      'US_K' :'', 'US_C' :'10.5C'},
+        {'mm': '175', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'',      'US_K' :'', 'US_C' :'11C'},
+        {'mm': '180', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'',      'US_K' :'', 'US_C' :'11.5C'},
+        {'mm': '185', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'',      'US_K' :'', 'US_C' :'12C'},
+        {'mm': '190', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'',      'US_K' :'', 'US_C' :'12.5C'},
+        {'mm': '195', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'',      'US_K' :'', 'US_C' :'13C'},
+        {'mm': '195', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'',      'US_K' :'', 'US_C' :'13.5C'},
+        {'mm': '200', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'1Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '205', 'US': '',     'US_M': '',     'US_W': '',     'US_Y':'1.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '210', 'US': '',     'US_M': '',     'US_W': '4W',   'US_Y':'2Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '215', 'US': '2.5',  'US_M': '2.5M', 'US_W': '4.5W', 'US_Y':'2.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '220', 'US': '3',    'US_M': '3M',   'US_W': '5W',   'US_Y':'3Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '225', 'US': '3.5',  'US_M': '3.5M', 'US_W': '5.5W', 'US_Y':'3.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '230', 'US': '4',    'US_M': '4M',   'US_W': '6W',   'US_Y':'4Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '235', 'US': '4.5',  'US_M': '4.5M', 'US_W': '6.5W', 'US_Y':'4.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '235', 'US': '5',    'US_M': '5M',   'US_W': '6.5W', 'US_Y':'5Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '240', 'US': '5.5',  'US_M': '5.5M', 'US_W': '7W',   'US_Y':'5.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '240', 'US': '6',    'US_M': '6M',   'US_W': '7W',   'US_Y':'6Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '245', 'US': '6.5',  'US_M': '6.5M', 'US_W': '7.5W', 'US_Y':'6.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '250', 'US': '7',    'US_M': '7M',   'US_W': '8W',   'US_Y':'7Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '255', 'US': '7.5',  'US_M': '7.5M', 'US_W': '8.5W', 'US_Y':'7.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '260', 'US': '8',    'US_M': '8M',   'US_W': '9W',   'US_Y':'8Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '265', 'US': '8.5',  'US_M': '8.5M', 'US_W': '9.5W', 'US_Y':'8.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '270', 'US': '9',    'US_M': '9M',   'US_W': '10W',  'US_Y':'9Y',    'US_K' :'', 'US_C' :''},
+        {'mm': '275', 'US': '9.5',  'US_M': '9.5M', 'US_W': '10.5W','US_Y':'9.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '280', 'US': '10',   'US_M': '10M',  'US_W': '11W',  'US_Y':'10Y',   'US_K' :'', 'US_C' :''},
+        {'mm': '285', 'US': '10.5', 'US_M': '10.5M','US_W': '11.5W','US_Y':'10.5Y', 'US_K' :'', 'US_C' :''},
+        {'mm': '290', 'US': '11',   'US_M': '11M',  'US_W': '12W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '295', 'US': '11.5', 'US_M': '11.5M','US_W': '12.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '300', 'US': '12',   'US_M': '12M',  'US_W': '13W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '305', 'US': '12.5', 'US_M': '12.5M','US_W': '13.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '310', 'US': '13',   'US_M': '13M',  'US_W': '14W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '315', 'US': '13.5', 'US_M': '13.5M','US_W': '14.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '320', 'US': '14',   'US_M': '14M',  'US_W': '15W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '325', 'US': '14.5', 'US_M': '14.5M','US_W': '15.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '330', 'US': '15',   'US_M': '15M',  'US_W': '16W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '335', 'US': '15.5', 'US_M': '15.5M','US_W': '16.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '340', 'US': '16',   'US_M': '16M',  'US_W': '17W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '345', 'US': '16.5', 'US_M': '16.5M','US_W': '17.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '350', 'US': '17',   'US_M': '17M',  'US_W': '18W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '355', 'US': '17.5', 'US_M': '17.5M','US_W': '18.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '360', 'US': '18',   'US_M': '18M',  'US_W': '19W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '365', 'US': '18.5', 'US_M': '18.5M','US_W': '19.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '370', 'US': '19',   'US_M': '19M',  'US_W': '20W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '375', 'US': '19.5', 'US_M': '19.5M','US_W': '20.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '380', 'US': '20',   'US_M': '20M',  'US_W': '21W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '385', 'US': '20.5', 'US_M': '20.5M','US_W': '21.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '390', 'US': '21',   'US_M': '21M',  'US_W': '22W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '395', 'US': '21.5', 'US_M': '21.5M','US_W': '22.5W','US_Y':'',      'US_K' :'', 'US_C' :''},
+        {'mm': '400', 'US': '22',   'US_M': '22M',  'US_W': '23W',  'US_Y':'',      'US_K' :'', 'US_C' :''},
+     ]},
+    {'brand': 'adidas',
+     'LUT': [
+        {'mm': '205', 'US': '2.5',  'US_M': '2.5M', 'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '210', 'US': '3',    'US_M': '3M',   'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '215', 'US': '3.5',  'US_M': '3.5M', 'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '220', 'US': '4',    'US_M': '4M',   'US_W': '5W',       'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '225', 'US': '4.5',  'US_M': '4.5M', 'US_W': '5.5W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '230', 'US': '5',    'US_M': '5M',   'US_W': '6W',       'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '235', 'US': '5.5',  'US_M': '5.5M', 'US_W': '6.5W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '240', 'US': '6',    'US_M': '6M',   'US_W': '7W',       'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '240', 'US': '6',    'US_M': '6M',   'US_W': '7.5W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '245', 'US': '6.5',  'US_M': '6.5M', 'US_W': '8W',       'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '250', 'US': '7',    'US_M': '7M',   'US_W': '8.5W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '255', 'US': '7.5',  'US_M': '7.5M', 'US_W': '9W',       'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '260', 'US': '8',    'US_M': '8M',   'US_W': '9.5W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '265', 'US': '8.5',  'US_M': '8.5M', 'US_W': '10W',      'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '265', 'US': '8.5',  'US_M': '8.5M', 'US_W': '10.5W',    'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '270', 'US': '9',    'US_M': '9M',   'US_W': '11W',      'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '275', 'US': '9.5',  'US_M': '9.5M', 'US_W': '11.5W',    'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '280', 'US': '10',   'US_M': '10M',  'US_W': '12W',      'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '285', 'US': '10.5', 'US_M': '10.5M','US_W': '12.5W',    'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '290', 'US': '11',   'US_M': '11M',  'US_W': '13W',      'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '295', 'US': '11.5', 'US_M': '11.5M','US_W': '13.5W',    'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '295', 'US': '11.5', 'US_M': '11.5M','US_W': '14W',      'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '300', 'US': '12',   'US_M': '12M',  'US_W': '14.5W',    'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '305', 'US': '12.5', 'US_M': '12.5M','US_W': '15W',      'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '310', 'US': '13',   'US_M': '13M',  'US_W': '15.5W',    'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '315', 'US': '13.5', 'US_M': '13.5M','US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '320', 'US': '14',   'US_M': '14M',  'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '325', 'US': '14.5', 'US_M': '14.5M','US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '330', 'US': '15',   'US_M': '15M',  'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '335', 'US': '15.5', 'US_M': '15.5M','US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '340', 'US': '16',   'US_M': '16M',  'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '345', 'US': '16.5', 'US_M': '16.5M','US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '350', 'US': '17',   'US_M': '17M',  'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '355', 'US': '17.5', 'US_M': '17.5M','US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '360', 'US': '18',   'US_M': '18M',  'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+     ]},
+    {'brand': 'new balance',
+     'LUT': [
+        {'mm': '205', 'US': '2.5',  'US_M': '2.5M', 'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '210', 'US': '3',    'US_M': '3M',   'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '215', 'US': '3.5',  'US_M': '3.5M', 'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '220', 'US': '4',    'US_M': '4M',   'US_W': '5W',       'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '225', 'US': '4.5',  'US_M': '4.5M', 'US_W': '5.5W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '230', 'US': '5',    'US_M': '5M',   'US_W': '6W',       'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '235', 'US': '5.5',  'US_M': '5.5M', 'US_W': '6.5W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '240', 'US': '6',    'US_M': '6M',   'US_W': '7W',       'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '240', 'US': '6',    'US_M': '6M',   'US_W': '7.5W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '245', 'US': '6.5',  'US_M': '6.5M', 'US_W': '8W',       'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '250', 'US': '7',    'US_M': '7M',   'US_W': '8.5W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '255', 'US': '7.5',  'US_M': '7.5M', 'US_W': '9W',       'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '260', 'US': '8',    'US_M': '8M',   'US_W': '9.5W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '265', 'US': '8.5',  'US_M': '8.5M', 'US_W': '10W',      'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '265', 'US': '8.5',  'US_M': '8.5M', 'US_W': '10.5W',    'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '270', 'US': '9',    'US_M': '9M',   'US_W': '11W',      'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '275', 'US': '9.5',  'US_M': '9.5M', 'US_W': '11.5W',    'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '280', 'US': '10',   'US_M': '10M',  'US_W': '12W',      'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '285', 'US': '10.5', 'US_M': '10.5M','US_W': '12.5W',    'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '290', 'US': '11',   'US_M': '11M',  'US_W': '13W',      'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '295', 'US': '11.5', 'US_M': '11.5M','US_W': '13.5W',    'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '295', 'US': '11.5', 'US_M': '11.5M','US_W': '14W',      'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '300', 'US': '12',   'US_M': '12M',  'US_W': '14.5W',    'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '305', 'US': '12.5', 'US_M': '12.5M','US_W': '15W',      'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '310', 'US': '13',   'US_M': '13M',  'US_W': '15.5W',    'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '315', 'US': '13.5', 'US_M': '13.5M','US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '320', 'US': '14',   'US_M': '14M',  'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '325', 'US': '14.5', 'US_M': '14.5M','US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '330', 'US': '15',   'US_M': '15M',  'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '335', 'US': '15.5', 'US_M': '15.5M','US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '340', 'US': '16',   'US_M': '16M',  'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '345', 'US': '16.5', 'US_M': '16.5M','US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '350', 'US': '17',   'US_M': '17M',  'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '355', 'US': '17.5', 'US_M': '17.5M','US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '360', 'US': '18',   'US_M': '18M',  'US_W': '',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+     ]},
+    {'brand': 'vans',
+     'LUT': [
+        {'mm': '215', 'US': '3.5', 'US_M': '3.5M',  'US_W': '5W',      'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '220', 'US': '4',   'US_M': '4M',    'US_W': '5.5W',    'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '225', 'US': '4.5', 'US_M': '4.5M',  'US_W': '6W',      'US_Y':'3.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '230', 'US': '5',   'US_M': '5M',    'US_W': '6.5W',    'US_Y':'4Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '235', 'US': '5.5', 'US_M': '5.5M',  'US_W': '7W',      'US_Y':'4.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '240', 'US': '6',   'US_M': '6M',    'US_W': '7.5W',    'US_Y':'5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '245', 'US': '6.5', 'US_M': '6.5M',  'US_W': '8W',      'US_Y':'5.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '245', 'US': '6.5', 'US_M': '6.5M',  'US_W': '8W',      'US_Y':'6Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '250', 'US': '7',   'US_M': '7M',    'US_W': '8.5W',    'US_Y':'6.5Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '255', 'US': '7.5', 'US_M': '7.5M',  'US_W': '9W',      'US_Y':'7Y',  'US_K' :'', 'US_C' :''},
+        {'mm': '260', 'US': '8',   'US_M': '8M',    'US_W': '9.5W',    'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '265', 'US': '8.5', 'US_M': '8.5M',  'US_W': '10W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '270', 'US': '9',   'US_M': '9M',    'US_W': '10.5W',   'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '275', 'US': '9.5', 'US_M': '9.5M',  'US_W': '11W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '280', 'US': '10',  'US_M': '10M',   'US_W': '11.5W',   'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '285', 'US': '10.5','US_M': '10.5M', 'US_W': '12W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '290', 'US': '11',  'US_M': '11M',   'US_W': '12.5W',   'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '295', 'US': '11.5','US_M': '11.5M', 'US_W': '13W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '300', 'US': '12',  'US_M': '12M',   'US_W': '13.5W',   'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '305', 'US': '12.5','US_M': '12.5M', 'US_W': '',        'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '310', 'US': '13',  'US_M': '13M',   'US_W': '14W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '315', 'US': '13.5','US_M': '13.5M', 'US_W': '',        'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '320', 'US': '14',  'US_M': '14M',   'US_W': '14.5W',   'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '325', 'US': '14.5','US_M': '14.5M', 'US_W': '',        'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '330', 'US': '15',  'US_M': '15M',   'US_W': '15W',     'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '335', 'US': '15.5','US_M': '15.5M', 'US_W': '',        'US_Y':'',  'US_K' :'', 'US_C' :''},
+        {'mm': '340', 'US': '16',  'US_M': '16M',   'US_W': '15.5W',         'US_Y':'',  'US_K' :'', 'US_C' :''},
+
+
+     ]},
+
+]

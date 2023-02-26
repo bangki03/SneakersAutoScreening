@@ -160,8 +160,8 @@ class DBManager:
 
         return data
 
-    ### 2) sneakers_price 상품 등록 여부 확인
-    def sneakers_price_check_product_need_update(self, market, product):
+    ### 2) sneakers_price 상품 등록 여부 확인 (Ver.B : stockx에 있는 모델만 등록.)
+    def sneakers_price_check_product_need_update_verB(self, market, product):
         if(market=='stockx'):
             query = "SELECT * from sneakers_price WHERE urlkey=%s"
             self.cursor.execute(query, (product['urlkey']))
@@ -197,18 +197,81 @@ class DBManager:
             pass
 
 
-    ### 1) stockx 상품 업데이트 ###
-    def sneakers_price_update_product(self, market, product):
+    ### 2) sneakers_price 상품 등록 여부 확인 (Ver.C : kream도 주체 가능. senakers_price에 모델명 없으면 등록..)
+    def sneakers_price_check_product_need_update(self, market, product):
         if(market=='stockx'):
-            query = "INSERT INTO sneakers_price (brand, model_no, product_name, size_stockx, size_estimated_mm, id_stockx, urlkey) VALUES (%s, %s, %s, %s, %s, %s, %s)" 
-            self.cursor.execute(query, (product['brand'], product['model_no'], product['product_name'], product['size_stockx'], product['size_estimated_mm'], product['id_stockx'], product['urlkey']))
-            
-            self.con.commit()
+            query = "SELECT * from sneakers_price WHERE model_no=%s"
+            self.cursor.execute(query, (product['model_no']))
+            data = self.cursor.fetchall()
+
+            if(len(data)==0):
+                return 'INSERT'
+            else:
+                query = "SELECT * from sneakers_price WHERE model_no=%s AND urlkey IS NULL"
+                self.cursor.execute(query, (product['model_no']))
+                data = self.cursor.fetchall()
+
+                if(len(data)>0):
+                    return 'UPDATE'
+                else:
+                    return 'PASS'
 
         elif(market=='kream'):
-            query = "UPDATE sneakers_price SET id_kream=%s, size_kream_mm=%s, size_kream_us=%s  WHERE model_no=%s AND size_estimated_mm=%s" 
-            self.cursor.execute(query, (product['id_kream'], product['size_kream_mm'], product['size_kream_us'], product['model_no'], product['size_kream_mm']))
-            self.con.commit()
+            query = "SELECT * from sneakers_price WHERE model_no=%s"
+            self.cursor.execute(query, (product['model_no']))
+            data = self.cursor.fetchall()
+
+            if(len(data)==0):
+                return 'INSERT'
+            else:
+                query = "SELECT * from sneakers_price WHERE model_no=%s AND id_kream IS NULL"
+                self.cursor.execute(query, (product['model_no']))
+                data = self.cursor.fetchall()
+
+                if(len(data)>0):
+                    return 'UPDATE'
+                else:
+                    return 'PASS'
+
+        elif(market=='musinsa'):
+            query = "SELECT * from sneakers_price WHERE model_no=%s AND id_musinsa IS NULL"
+            self.cursor.execute(query, (product['model_no']))
+            data = self.cursor.fetchall()
+
+            if(len(data)>0):
+                return True
+            else:
+                return False
+            
+        else:
+            print("[DBManager] : 존재하지 않는 Market(%s) 입니다."%(market))
+            pass
+
+
+    ### 1) stockx 상품 업데이트 ###
+    def sneakers_price_update_product(self, market, query_type, product):
+        if(market=='stockx'):
+            if(query_type=='INSERT'):
+                query = "INSERT INTO sneakers_price (brand, model_no, product_name, size_stockx, size_estimated_mm, id_stockx, urlkey) VALUES (%s, %s, %s, %s, %s, %s, %s)" 
+                self.cursor.execute(query, (product['brand'], product['model_no'], product['product_name'], product['size_stockx'], product['size_estimated_mm'], product['id_stockx'], product['urlkey']))
+                
+                self.con.commit()
+            if(query_type=='UPDATE'):
+                query = "UPDATE sneakers_price SET size_stockx=%s, urlkey=%s, id_stockx=%s WHERE model_no=%s AND size_kream_mm=%s AND size_kream_us=%s"
+                self.cursor.execute(query, (product['size_stockx'], product['urlkey'], product['id_stockx'], product['model_no'], product['size_kream_mm'], product['size_kream_us']))
+                pass
+
+        elif(market=='kream'):
+            if(query_type=='INSERT'):
+                query = "INSERT INTO sneakers_price (brand, model_no, product_name, size_kream_mm, size_kream_us, id_kream) VALUES (%s, %s, %s, %s, %s, %s)" 
+                self.cursor.execute(query, (product['brand'], product['model_no'], product['product_name'], product['size_kream_mm'], product['size_kream_us'], product['id_kream']))
+                
+                self.con.commit()
+
+            if(query_type=='UPDATE'):
+                query = "UPDATE sneakers_price SET id_kream=%s, size_kream_mm=%s, size_kream_us=%s  WHERE model_no=%s AND size_estimated_mm=%s" 
+                self.cursor.execute(query, (product['id_kream'], product['size_kream_mm'], product['size_kream_us'], product['model_no'], product['size_kream_mm']))
+                self.con.commit()
 
         elif(market=='musinsa'):
             query = "UPDATE sneakers_price SET id_musinsa=%s WHERE model_no=%s" 
@@ -266,6 +329,14 @@ class DBManager:
             print("[DBManager] : 존재하지 않는 Market(%s) 입니다."%(market))
             pass
 
+    ### 2) Distinct model_no (sneakers_price 가격 업데이트 할 때, 모델 단위로 불러오기 위함) ###
+    def sneakers_price_fetch_model_no(self):
+        query = "SELECT DISTINCT brand, model_no FROM sneakers_price"
+        self.cursor.execute(query)
+        data = self.cursor.fetchall()
+        
+        return data
+
     ### 2) Distinct urlkey (stockx 가격 업데이트 필요한 상품군 불러오기 위함) ###
     def sneakers_price_fetch_urlkey(self):
         query = "SELECT DISTINCT urlkey FROM sneakers_price"
@@ -281,11 +352,19 @@ class DBManager:
         data = self.cursor.fetchall()
 
         return data
-    
+
     ### 4) Distinct id_musinsa (musinsa 가격 업데이트 필요한 상품군 불러오기 위함) ###
     def sneakers_price_fetch_id_musinsa(self):
         query = "SELECT DISTINCT id_musinsa from sneakers_price WHERE id_musinsa IS NOT NULL"
         self.cursor.execute(query)
+        data = self.cursor.fetchall()
+
+        return data
+    
+    ### 5) 특정 model_no 상품 불러오기 (model_no 단위 상품 가격 업데이트 위함) ###
+    def sneakers_price_fetch_product_model_no(self, model_no):
+        query = "SELECT * FROM sneakers_price WHERE model_no=%s"
+        self.cursor.execute(query, (model_no))
         data = self.cursor.fetchall()
 
         return data
@@ -306,26 +385,14 @@ class DBManager:
 
         return data
     
+    ### 6) 특정 id_kream 상품 불러오기 (id_kream 단위 상품 가격 업데이트 위함) ###
+    def kream_fetch_product_id_kream(self, id_kream):
+        query = "SELECT * FROM kream WHERE id_kream=%s"
+        self.cursor.execute(query, (id_kream))
+        data = self.cursor.fetchall()
+
+        return data
     
-    
-    ### 기타) urlkey 의 index 출력 ###
-    def sneakers_price_fetch_index(self, market, key):
-        if(market == 'stockx'):
-            data = self.sneakers_price_fetch_urlkey()
-            return [index for index, item in enumerate(data) if item['urlkey'] == key][0] + 1
-        
-        elif(market == 'kream'):
-            data = self.sneakers_price_fetch_id_kream()
-            aa = [index for index, item in enumerate(data) if item['id_kream'] == key]
-
-            return [index for index, item in enumerate(data) if item['id_kream'] == key][0] + 1
-        
-        elif(market == 'musinsa'):
-            data = self.sneakers_price_fetch_id_musinsa()
-            return [index for index, item in enumerate(data) if item['id_musinsa'] == key][0] + 1
-        
-
-
 
 
     def table_fetch(self, table, option_pandas):
@@ -333,10 +400,50 @@ class DBManager:
         if(option_pandas):
             data = pandas.read_sql_query(query, self.con)
             return data
+        
+    def sneakers_price_fetch_product_report(self, option_pandas):
+        query = "SELECT * FROM sneakers_price WHERE NOT(price_buy_kream IS NULL AND price_sell_kream IS NULL AND price_sale_musinsa IS NULL AND price_discount_musinsa IS NULL AND price_buy_stockx IS NULL AND price_sell_stockx IS NULL)"
+        if(option_pandas):
+            data = pandas.read_sql_query(query, self.con)
+            return data
+
+
+
+
+    #######################################################################################################################################
+    #######################################################################################################################################
+    ### 기타 - 사용자 관리용 기능
+    #######################################################################################################################################
+    #######################################################################################################################################
+    ### 기타) urlkey 의 index 출력 ###
+    def _sneakers_price_fetch_index(self, market, key):
+        if(market == 'stockx'):
+            data = self.sneakers_price_fetch_urlkey()
+            return [index for index, item in enumerate(data) if item['urlkey'] == key][0] + 1
+        
+        elif(market == 'kream'):
+            data = self.sneakers_price_fetch_id_kream()
+            return [index for index, item in enumerate(data) if item['id_kream'] == key][0] + 1
+        
+        elif(market == 'musinsa'):
+            data = self.sneakers_price_fetch_id_musinsa()
+            return [index for index, item in enumerate(data) if item['id_musinsa'] == key][0] + 1
+
+    def _stockx_update_registered(self):
+        query = "UPDATE stockx INNER JOIN sneakers_price ON stockx.urlkey = sneakers_price.urlkey SET registered=True"
+        query = "SELECT DISTINCT stockx.id FROM stockx INNER JOIN sneakers_price ON stockx.urlkey=sneakers_price.urlkey WHERE sneakers_price.urlkey IS NOT NULL"
+        self.cursor.execute(query)
+        data = self.cursor.fetchall()
+
+        return data
+
 
 
 
 if __name__ == '__main__':
     DBManager = DBManager()
-    # print(DBManager.sneakers_price_fetch_index('kream', 80245))
-    print(DBManager.sneakers_price_fetch_index('stockx', 'new-balance-993-aime-leon-dore-brown'))
+
+    ###### 상품 index 찾기 ######
+    # print(DBManager._sneakers_price_fetch_index('kream', 12831))
+    # print(DBManager._sneakers_price_fetch_index('musinsa', '2267726'))
+    # print(DBManager._sneakers_price_fetch_index('stockx', 'new-balance-993-aime-leon-dore-brown'))
