@@ -4,8 +4,17 @@ import pandas
 
 class DBManager:
     def __init__(self):
-        self.con = pymysql.connect(host='localhost', user='bangki', password='Bangki12!@', db='sneakers', charset='utf8')
-        self.cursor = self.con.cursor(pymysql.cursors.DictCursor)
+        while(True):
+            self.username = input("[DBManager]ID를 입력하세요: ")
+            self.password= input("[DBManager]Password를 입력하세요: ")
+            try:
+                self.con = pymysql.connect(host='58.143.128.86', port=33060, user=self.username, password=self.password, db='sneakers', charset='utf8')
+                self.cursor = self.con.cursor(pymysql.cursors.DictCursor)
+                print("[DBManager]### LOGIN SUCCESS ###")
+                break
+            except Exception as e:
+                print("[DBManager]### LOGIN FAIL ###")
+        
 
     def __setManagers__(self, SneakersManager, StockXManager, KreamManager, MusinsaManager, ReportManager):
         self.SneakersManager = SneakersManager
@@ -91,7 +100,7 @@ class DBManager:
     ### 2) kream 상품 업데이트 ###
     def kream_update_product(self, product):
         query = "INSERT INTO kream (brand, model_no, product_name, id_kream, size_mm, size_us) VALUES (%s, %s, %s, %s, %s, %s)" 
-        self.cursor.execute(query, (product['brand'], product['model_no'], product['product_name'], product['id_kream'], product['size_mm'], product['size_us']))
+        self.cursor.execute(query, (product['brand'], product['model_no'], product['product_name'], product['id_kream'], product['size_kream_mm'], product['size_kream_us']))
 
         self.con.commit()
     
@@ -339,7 +348,7 @@ class DBManager:
 
     ### 2) Distinct urlkey (stockx 가격 업데이트 필요한 상품군 불러오기 위함) ###
     def sneakers_price_fetch_urlkey(self):
-        query = "SELECT DISTINCT urlkey FROM sneakers_price"
+        query = "SELECT DISTINCT urlkey, model_no FROM sneakers_price"
         self.cursor.execute(query)
         data = self.cursor.fetchall()
         
@@ -428,6 +437,15 @@ class DBManager:
         elif(market == 'musinsa'):
             data = self.sneakers_price_fetch_id_musinsa()
             return [index for index, item in enumerate(data) if item['id_musinsa'] == key][0] + 1
+        
+        elif(market == 'sneakers'):
+            data = self.sneakers_price_fetch_model_no()
+            return [index for index, item in enumerate(data) if item['model_no'] == key][0] + 1
+        
+        elif(market == 'type1'):
+            data = self.sneakers_price_fetch_urlkey()
+            return [index for index, item in enumerate(data) if item['model_no'] == key][0] + 1
+
 
     def _stockx_update_registered(self):
         query = "UPDATE stockx INNER JOIN sneakers_price ON stockx.urlkey = sneakers_price.urlkey SET registered=True"
@@ -447,3 +465,5 @@ if __name__ == '__main__':
     # print(DBManager._sneakers_price_fetch_index('kream', 12831))
     # print(DBManager._sneakers_price_fetch_index('musinsa', '2267726'))
     # print(DBManager._sneakers_price_fetch_index('stockx', 'new-balance-993-aime-leon-dore-brown'))
+
+    # print(DBManager._sneakers_price_fetch_index('sneakers', '172896C'))

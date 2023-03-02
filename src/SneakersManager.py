@@ -67,12 +67,12 @@ class SneakersManager:
                 toc=time.time()
                 print("[SneakersManager] : (%s-%s)가격 스크랩 완료(stockx, kream, musinsa) (%d/%d) [%.1fmin]"%(product['brand'], product['model_no'], index+1, cnt_total, (toc-tic)/60))
             
-            elif(registered_at['stockx'] and registered_at['kream']):
-                self.update_price_market(market='stockx', data=data)
-                self.update_price_market(market='kream', data=data)
+            # elif(registered_at['stockx'] and registered_at['kream']):
+            #     self.update_price_market(market='stockx', data=data)
+            #     self.update_price_market(market='kream', data=data)
 
-                toc=time.time()
-                print("[SneakersManager] : (%s-%s)가격 스크랩 완료(stockx, kream) (%d/%d) [%.1fmin]"%(product['brand'], product['model_no'], index+1, cnt_total, (toc-tic)/60))
+            #     toc=time.time()
+            #     print("[SneakersManager] : (%s-%s)가격 스크랩 완료(stockx, kream) (%d/%d) [%.1fmin]"%(product['brand'], product['model_no'], index+1, cnt_total, (toc-tic)/60))
             
             elif(registered_at['kream'] and registered_at['musinsa']):
                 self.update_price_market(market='kream', data=data)

@@ -55,7 +55,7 @@ class SASSManager:
         
     # 동작1-3. 상품 업데이트 (kream)
     def _update_product_kream(self):
-        # self.KreamManager.update_product(table='kream')
+        self.KreamManager.update_product(table='kream')
         self.KreamManager.update_product(table='sneakers_price')
         
     # 동작1-4. 상품 업데이트 (musinsa)
@@ -99,11 +99,15 @@ if __name__ == '__main__':
 
     
     ### 가격 업데이트 ###
-    SASSManager._update_price_all(id_start=501)  
-    # SASSManager._update_price_stockx(id_start=3447)
+    
+    # SASSManager._update_price_all(id_start=711)  
+    # SASSManager._update_price_stockx(id_start=1155)
     # SASSManager._update_price_kream(id_start=2412)
     # SASSManager._update_price_musinsa(id_start=55)
 
 
     ### 레포트 ###
-    # SASSManager._report_sneakers_price()
+    SASSManager._report_sneakers_price()
+
+
+
